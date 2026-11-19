@@ -257,13 +257,15 @@ static BOOL XRHVersionNewer(NSString *a, NSString *b) {
 
 // 查公开仓库最新的 Release（没发过 Release / 没网 / 被限流都当作没有更新，不提示）
 - (void)xrh_checkUpdate {
-    NSURL *url = [NSURL URLWithString:[NSString stringWithFormat:@"https://api.github.com/repos/%@/releases/latest", kXRHRepo]];
+    // 取最新的一个 Release（含预览版）：releases/latest 只返回正式版，预览版期间会查不到新版本
+    NSURL *url = [NSURL URLWithString:[NSString stringWithFormat:@"https://api.github.com/repos/%@/releases?per_page=1", kXRHRepo]];
     NSMutableURLRequest *req = [NSMutableURLRequest requestWithURL:url cachePolicy:NSURLRequestReloadIgnoringLocalCacheData timeoutInterval:10];
     [req setValue:@"application/vnd.github+json" forHTTPHeaderField:@"Accept"];
     __weak typeof(self) weakSelf = self;
     [[NSURLSession.sharedSession dataTaskWithRequest:req completionHandler:^(NSData *data, NSURLResponse *resp, NSError *error) {
         if (error || !data || ![resp isKindOfClass:[NSHTTPURLResponse class]] || ((NSHTTPURLResponse *)resp).statusCode != 200) return;
-        NSDictionary *json = [NSJSONSerialization JSONObjectWithData:data options:0 error:nil];
+        NSArray *list = [NSJSONSerialization JSONObjectWithData:data options:0 error:nil];
+        NSDictionary *json = [list isKindOfClass:[NSArray class]] ? list.firstObject : nil;
         if (![json isKindOfClass:[NSDictionary class]]) return;
         NSString *tag = json[@"tag_name"], *page = json[@"html_url"];
         if (![tag isKindOfClass:[NSString class]] || ![page isKindOfClass:[NSString class]]) return;
