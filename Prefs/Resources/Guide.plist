@@ -1,0 +1,236 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>en</key>
+	<array>
+		<dict>
+			<key>items</key>
+			<array>
+				<dict>
+					<key>body</key>
+					<string>How much charge it holds compared with new. Below 80%, battery life gets noticeably shorter; consider a replacement. May differ from Battery Health by 1–2%.</string>
+					<key>title</key>
+					<string>Maximum Capacity</string>
+				</dict>
+				<dict>
+					<key>body</key>
+					<string>Every 100% of charge used adds up to one cycle. iPhone 15 models keep about 80% after roughly 1000 cycles; earlier models after about 500.</string>
+					<key>title</key>
+					<string>Cycle Count</string>
+				</dict>
+				<dict>
+					<key>body</key>
+					<string>Design: rated from the factory. Full charge: how much it holds when full now. Current: how much is in it right now.</string>
+					<key>title</key>
+					<string>The Three Capacities</string>
+				</dict>
+			</array>
+			<key>title</key>
+			<string>Health</string>
+		</dict>
+		<dict>
+			<key>items</key>
+			<array>
+				<dict>
+					<key>body</key>
+					<string>While charging, it's what the charger sends into the phone (matches a USB power meter); higher means faster. Otherwise it's how fast the phone uses power: under 1 W on standby, 5 W or more in games.</string>
+					<key>title</key>
+					<string>Power</string>
+				</dict>
+				<dict>
+					<key>body</key>
+					<string>Positive means charging, negative means draining.</string>
+					<key>title</key>
+					<string>Current</string>
+				</dict>
+				<dict>
+					<key>body</key>
+					<string>Usually 3.5–4.4 V, higher when fuller. Nothing to worry about.</string>
+					<key>title</key>
+					<string>Voltage</string>
+				</dict>
+				<dict>
+					<key>body</key>
+					<string>• Below 30 °C: comfortable
+• 30–40 °C: common while charging or gaming
+• Above 40 °C (orange): warm; charging slows down
+• Above 45 °C (red): unplug and let it rest</string>
+					<key>title</key>
+					<string>Temperature</string>
+				</dict>
+				<dict>
+					<key>body</key>
+					<string>Usually Optimized Charging or the 80% Limit holding it at 80%. Not a fault. It also pauses when too hot.</string>
+					<key>title</key>
+					<string>Plugged In, Not Charging</string>
+				</dict>
+				<dict>
+					<key>body</key>
+					<string>Charging: accounts for slowing down after 80%, so it's far more realistic than using the current rate. Time left: assumes you keep using the phone as you are now; open a game and it drops. Both are rough, rounded to 5–10 minutes.</string>
+					<key>title</key>
+					<string>Estimate</string>
+				</dict>
+			</array>
+			<key>title</key>
+			<string>Live</string>
+		</dict>
+		<dict>
+			<key>items</key>
+			<array>
+				<dict>
+					<key>body</key>
+					<string>The most the charger can deliver. Actual power being lower is normal.</string>
+					<key>title</key>
+					<string>Max Power</string>
+				</dict>
+				<dict>
+					<key>body</key>
+					<string>e.g. 9 V · 3 A = 27 W. If it only shows 5 V, the cable or charger probably doesn't support fast charging.</string>
+					<key>title</key>
+					<string>Output</string>
+				</dict>
+				<dict>
+					<key>body</key>
+					<string>The name the charger reports. Third-party chargers may not have one.</string>
+					<key>title</key>
+					<string>Model</string>
+				</dict>
+			</array>
+			<key>title</key>
+			<string>Charger</string>
+		</dict>
+		<dict>
+			<key>items</key>
+			<array>
+				<dict>
+					<key>body</key>
+					<string>• Don't charge in the heat or game while charging
+• Often plugged in? Turn on Optimized Charging or the 80% Limit
+• Top up whenever; no need to run it flat
+• Storing it for a while? Leave it around 50%</string>
+					<key>title</key>
+					<string></string>
+				</dict>
+			</array>
+			<key>title</key>
+			<string>Battery Care</string>
+		</dict>
+	</array>
+	<key>zh</key>
+	<array>
+		<dict>
+			<key>items</key>
+			<array>
+				<dict>
+					<key>body</key>
+					<string>和新电池比还剩多少。低于 80% 续航会明显变短，可以考虑换电池。和系统「电池健康」可能差 1～2%。</string>
+					<key>title</key>
+					<string>最大容量</string>
+				</dict>
+				<dict>
+					<key>body</key>
+					<string>累计用完 100% 电量算一次。iPhone 15 系列约 1000 次后还剩 80%，更早的机型约 500 次。</string>
+					<key>title</key>
+					<string>循环次数</string>
+				</dict>
+				<dict>
+					<key>body</key>
+					<string>设计容量：出厂标称。实际容量：现在充满能装多少。当前电量：此刻还剩多少。</string>
+					<key>title</key>
+					<string>三个容量</string>
+				</dict>
+			</array>
+			<key>title</key>
+			<string>健康</string>
+		</dict>
+		<dict>
+			<key>items</key>
+			<array>
+				<dict>
+					<key>body</key>
+					<string>充电时是充电头送进手机的功率，和数显线对得上，越大充得越快。不充电时是手机的耗电速度：待机不到 1 W，玩游戏 5 W 以上。</string>
+					<key>title</key>
+					<string>功率</string>
+				</dict>
+				<dict>
+					<key>body</key>
+					<string>正数在充电，负数在耗电。</string>
+					<key>title</key>
+					<string>电流</string>
+				</dict>
+				<dict>
+					<key>body</key>
+					<string>一般 3.5～4.4 V，越满越高，不用太在意。</string>
+					<key>title</key>
+					<string>电压</string>
+				</dict>
+				<dict>
+					<key>body</key>
+					<string>• 30 ℃ 以下：舒服
+• 30～40 ℃：充电、游戏时常见
+• 40 ℃ 以上（橙）：偏热，系统会放慢充电
+• 45 ℃ 以上（红）：拔线歇一会儿</string>
+					<key>title</key>
+					<string>温度</string>
+				</dict>
+				<dict>
+					<key>body</key>
+					<string>多半是优化充电或 80% 上限让它停在 80%，不是故障。太热时也会暂停。</string>
+					<key>title</key>
+					<string>已接电源，暂停充电</string>
+				</dict>
+				<dict>
+					<key>body</key>
+					<string>充电：已经算上 80% 以后会变慢，比直接按现在的速度算准得多。用完：只按你此刻的用法算，打开游戏就会变短。都是大概，取整到 5～10 分钟。</string>
+					<key>title</key>
+					<string>预计</string>
+				</dict>
+			</array>
+			<key>title</key>
+			<string>实时</string>
+		</dict>
+		<dict>
+			<key>items</key>
+			<array>
+				<dict>
+					<key>body</key>
+					<string>充电器能给的上限。实际功率比它低很正常。</string>
+					<key>title</key>
+					<string>最大功率</string>
+				</dict>
+				<dict>
+					<key>body</key>
+					<string>比如 9 V · 3 A = 27 W。只有 5 V 的话，多半是线或头不支持快充。</string>
+					<key>title</key>
+					<string>规格</string>
+				</dict>
+				<dict>
+					<key>body</key>
+					<string>充电器自己报的名字，第三方充电器可能没有。</string>
+					<key>title</key>
+					<string>型号</string>
+				</dict>
+			</array>
+			<key>title</key>
+			<string>充电器</string>
+		</dict>
+		<dict>
+			<key>items</key>
+			<array>
+				<dict>
+					<key>body</key>
+					<string>• 别在高温下充电，别边充边玩游戏
+• 常插着线的话，打开优化充电或 80% 上限
+• 随用随充，不用等用光
+• 长期不用，放在 50% 左右保存</string>
+					<key>title</key>
+					<string></string>
+				</dict>
+			</array>
+			<key>title</key>
+			<string>养电池</string>
+		</dict>
+	</array>
+</dict>
+</plist>

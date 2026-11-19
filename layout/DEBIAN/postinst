@@ -1,0 +1,14 @@
+#!/bin/sh
+# 桌面快捷 App 只在调试版里有：有就注册到主屏幕；没有（正式版，或从调试版换成正式版）就把旧图标注销掉
+APP=/Applications/xrheaLauncher.app
+if [ -d "$APP" ]; then
+    uicache -p "$APP" >/dev/null 2>&1 || true
+else
+    uicache -u "$APP" >/dev/null 2>&1 || true
+fi
+
+# 充电上限后台服务：重新加载（roothide 会在加载时把 plist 里的路径改成越狱根下的真实路径）
+DAEMON=/Library/LaunchDaemons/com.xyrith.xrhea.daemon.plist
+launchctl unload "$DAEMON" >/dev/null 2>&1 || true
+launchctl load -w "$DAEMON" >/dev/null 2>&1 || true
+exit 0

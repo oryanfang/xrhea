@@ -1,0 +1,8 @@
+.theos/
+packages/
+.DS_Store
+local.mk
+# 不公开：设计记录、开发用的探测工具
+POWER-PLUGIN.md
+Probe/
+docs/mockups/

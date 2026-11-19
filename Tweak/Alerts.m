@@ -1,0 +1,783 @@
+// 提醒：在 SpringBoard 里按条件判断，用 Toast.m 的提示弹出来。每条在「设置 › xrhea › 提示」里单独开关，后面的「试试看」
+// 用手机此刻的数据弹一次（XRHTryAlert）。显示的内容（灵动岛长条的左字右值、短条的短值、横幅的两行字）在各条的 XRHShowXxx 里。
+//
+//   充电  1 插电：插上后等电流稳了（最多 25 秒）、等插电弹窗关掉；显示充电头送进来的功率（同 USB 数显线），横幅带预计时间
+//        13 到点（默认关）：充到自己设的电量（alertTargetLevel，默认 90%）提醒，不停充
+//         2 停充：充电上限停充了（xrhead 状态文件 inhibited 从 0 变 1），显示停下时的实际电量（可能比上限少 1%）
+//         7 充满：没开上限、充到 100%（插上时已满不算）
+//         5 总结：拔线时，插了 ≥ 1 分钟、充了 ≥ 1%
+//   异常  3 慢充：插上 45 秒后，有线、在充、电量 < 80%，只跑 5 V 或功率连续 30 秒 < 5 W
+//         8 降速：插着电时 ChargerData.TimeChargingThermallyLimited 在涨（系统因过热限流）
+//        12 接触不良：1 分钟内拔线 ≥ 3 次（这时不弹拔线总结）
+//        14 中断：插上 30 秒后，连续 30 秒插着电却没在充（不是上限停的、没充满、电量 < 79%、ChargerData.NotChargingReason ≠ 0）
+//         4 过热：≥ 40 ℃ 偏热、≥ 45 ℃ 过热；降到 38 ℃ 以下才会再弹（偏热升到过热算新的一次）
+//        11 低温：充电时电池 < 5 ℃；升到 8 ℃ 以上才会再弹
+//   用电  9 待机耗电：锁屏 ≥ 半小时、期间没接过电源、掉 ≥ 3% 且每小时 > 3%，亮屏时弹
+//        10 睡前：22～2 点、没插线、电量 < 30%，每晚一次
+//         6 高耗电（默认关）：用电池、亮屏时 1 分钟平均功率 > 6 W
+// 不做：低电量（系统自己有）；健康度下降（容量一点点往下掉是正常老化，频繁提醒只会让人焦虑）。
+//
+// 防打扰：同一种 30 分钟内只弹一次；插电、停充、慢充、降速、充满、到点、中断每次插拔最多一次。
+// 专注模式（勿扰、睡眠等）开着时不弹，哪几条照常弹自己选（focusAllow.<键>，默认只有过热、低温）；被挡掉的不占冷却。
+// 读数频率：接着电源时 5 秒一次，用电池时 10 秒一次，灭屏时不读（每次只读几个键，见 XRBattery.m）。
+#import "XRHCommon.h"
+#import <notify.h>
+#import <dlfcn.h>
+
+static const NSTimeInterval kXRHAlertCooldown = 30 * 60;   // 同一种提醒的最短间隔
+static const double kXRHHotWarn = 40, kXRHHotSevere = 45, kXRHHotRearm = 38;
+static const double kXRHSlowWatts = 5, kXRHDrainWatts = 6;
+
+// 顺序 = 设置页「试试看」的编号 - 1（com.xyrith.xrhea/try-alert-1 … -14），新的只往后加
+typedef NS_ENUM(NSInteger, XRHAlert) { XRHAlertPlugIn, XRHAlertLimit, XRHAlertSlow, XRHAlertHot, XRHAlertUnplug, XRHAlertDrain,
+                                       XRHAlertFull, XRHAlertThrottle, XRHAlertStandby,
+                                       XRHAlertBedtime, XRHAlertCold, XRHAlertFlaky, XRHAlertTarget, XRHAlertStopped, XRHAlertCount };
+
+static NSTimeInterval gLastShown[XRHAlertCount];
+static dispatch_source_t gTimer;
+static NSTimeInterval gTimerInterval;
+static int gBlankToken = -1;
+
+// 这次插着电源期间的状态（拔线清空）
+static BOOL gConnected;
+static double gPlugLevel = NAN;                 // 插上时的电量
+static NSTimeInterval gPlugTime;
+static BOOL gShownThisPlug[XRHAlertCount];
+static BOOL gWasInhibited;                      // 上一次读到的「已停充」
+static NSMutableArray<NSNumber *> *gWatts;      // 最近几次的功率（接电源时判断充电慢，用电池时判断耗电快）
+static NSMutableArray<NSNumber *> *gAmps;       // 最近几次的电流（耗电快时估还能用多久）
+static int gHotLevel;                           // 0 正常 / 1 已弹过偏热 / 2 已弹过过热
+static double gLastGained = NAN, gLastMinutes = NAN, gLastLevel = NAN;   // 上次拔线的总结（「试试看」没插着线时用）
+static double gThermalBase = NAN;               // 7 降速：ChargerData.TimeChargingThermallyLimited 上次读到的值（涨了 = 正在因过热限流）
+static double gBlankLevel = NAN;                // 9 待机：灭屏时的电量
+static NSTimeInterval gBlankTime;               //        灭屏时间（0 = 没在记）
+static BOOL gBlankPlugged;                      //        这段锁屏期间接过电源（接过就不算）
+static double gLastStandbyDrop = NAN, gLastStandbyHours = NAN;   // 上次锁屏的掉电记录（「试试看」用）
+static const double kXRHStandbyRate = 3;        // 每小时掉多少 % 算快
+static NSString *gBedtimeNight;                 // 10 睡前：已经提醒过的那一晚（yyyy-MM-dd，0～2 点算前一天）
+static const double kXRHBedtimeLevel = 30, kXRHColdWarn = 5, kXRHColdRearm = 8;
+static BOOL gColdShown;                         // 11 低温：弹过了，升到 8 ℃ 以上才会再弹
+static NSMutableArray<NSNumber *> *gUnplugTimes;   // 12 接触：最近的拔线时间
+static int gStoppedTicks;                       // 14 中断：连续几次读到「插着却不充」
+
+#pragma mark - 小工具
+
+static NSString *XRHAlertKey(XRHAlert a);
+
+static BOOL XRHAlertOn(XRHAlert a) {
+    return [[XRHPrefs shared] boolForKey:XRHAlertKey(a) fallback:a != XRHAlertDrain && a != XRHAlertTarget];
+}
+
+static NSString *XRHAlertKey(XRHAlert a) {
+    static NSString *keys[XRHAlertCount] = { kXRHAlertPlugIn, kXRHAlertLimit, kXRHAlertSlow, kXRHAlertHot, kXRHAlertUnplug, kXRHAlertDrain,
+                                             kXRHAlertFull, kXRHAlertThrottle, kXRHAlertStandby,
+                                             kXRHAlertBedtime, kXRHAlertCold, kXRHAlertFlaky, kXRHAlertTarget, kXRHAlertStopped };
+    return keys[a];
+}
+
+// 专注模式（勿扰、睡眠等）开着没有：读 SpringBoard 自己的 SBDoNotDisturbStateMonitor（2026-11-19 真机探测）。
+// DNDStateService 直接问会被拒（XPC error，换什么 client identifier 都一样）。只在要弹提醒时读，不在启动 / 布局时调 sharedInstance
+static BOOL XRHFocusActive(void) {
+    Class c = NSClassFromString(@"SBDoNotDisturbStateMonitor");
+    if (![c respondsToSelector:NSSelectorFromString(@"sharedInstance")]) return NO;
+    id mon = ((id (*)(id, SEL))objc_msgSend)(c, NSSelectorFromString(@"sharedInstance"));
+    id state = [mon respondsToSelector:NSSelectorFromString(@"state")] ? ((id (*)(id, SEL))objc_msgSend)(mon, NSSelectorFromString(@"state")) : nil;
+    return [state respondsToSelector:@selector(isActive)] && ((BOOL (*)(id, SEL))objc_msgSend)(state, @selector(isActive));
+}
+
+// 开着、冷却过了、（需要时）这次插拔还没弹过 → 记下并返回 YES
+static BOOL XRHAlertTake(XRHAlert a, BOOL oncePerPlug) {
+    if (!XRHAlertOn(a)) return NO;
+    // 专注模式静默：每条可以自己选专注时照不照样弹（focusAllow.<键>，默认只有过热、低温照常）；
+    // 被挡掉的不算弹过，不占冷却
+    BOOL allow = [[XRHPrefs shared] boolForKey:[kXRHFocusAllowPrefix stringByAppendingString:XRHAlertKey(a)] fallback:a == XRHAlertHot || a == XRHAlertCold];
+    if (!allow && [[XRHPrefs shared] boolForKey:kXRHToastFocusQuiet fallback:YES] && XRHFocusActive()) {
+        XRHDebugLog(@"[Alert] 专注模式，静默 %ld", (long)a);
+        return NO;
+    }
+    NSTimeInterval now = CFAbsoluteTimeGetCurrent();
+    if (gLastShown[a] > 0 && now - gLastShown[a] < kXRHAlertCooldown) return NO;
+    if (oncePerPlug && gShownThisPlug[a]) return NO;
+    gLastShown[a] = now;
+    gShownThisPlug[a] = YES;
+    return YES;
+}
+
+static BOOL XRHScreenBlanked(void) {
+    if (gBlankToken < 0) return NO;
+    uint64_t state = 0;
+    notify_get_state(gBlankToken, &state);
+    return state != 0;
+}
+
+// 充电上限这次生效吗（开着、没点「这次充满」）
+static BOOL XRHLimitActive(void) {
+    return XRHOn(kXRHChargeLimit) && !XRHOn(kXRHChargeLimitFullOnce);
+}
+
+static int XRHLimitMax(void) {
+    return (int)XRHDouble(kXRHChargeLimitMax, 80, 50, 100);
+}
+
+// 时长短写（灵动岛右边只有约 80pt）：「约40分钟」「约1.5小时」「约2小时」——一小时以上只到半小时，
+// 「约2小时10分」太长，会被缩小一号
+static NSString *XRHShortDuration(double minutes) {
+    long m = XRHRoundMinutes(minutes);
+    if (m < 60) return [NSString stringWithFormat:XRHText(@"约%ld分钟", @"~%ld min"), m];
+    long halves = MAX(2, lround(minutes / 30));
+    if (halves % 2 == 0) return [NSString stringWithFormat:XRHText(@"约%ld小时", @"~%ld h"), halves / 2];
+    return [NSString stringWithFormat:XRHText(@"约%.1f小时", @"~%.1f h"), halves / 2.0];
+}
+
+// 横幅里的长写：「约 40 分钟」「约 1 小时 20 分钟」
+static NSString *XRHLongDuration(double minutes) {
+    long m = XRHRoundMinutes(minutes);
+    if (m < 60) return [NSString stringWithFormat:XRHText(@"约 %ld 分钟", @"about %ld min"), m];
+    if (m % 60 == 0) return [NSString stringWithFormat:XRHText(@"约 %ld 小时", @"about %ld h"), m / 60];
+    return [NSString stringWithFormat:XRHText(@"约 %ld 小时 %ld 分钟", @"about %ld h %ld min"), m / 60, m % 60];
+}
+
+static double XRHAverage(NSArray<NSNumber *> *a, NSUInteger last) {
+    if (a.count < last || !last) return NAN;
+    double sum = 0;
+    for (NSUInteger i = a.count - last; i < a.count; i++) sum += a[i].doubleValue;
+    return sum / last;
+}
+
+static void XRHPush(NSMutableArray<NSNumber *> *a, double v, NSUInteger max) {
+    if (isnan(v)) return;
+    [a addObject:@(v)];
+    while (a.count > max) [a removeObjectAtIndex:0];
+}
+
+#pragma mark - 各条提醒的内容（测试通知也走这里，所以数值都从参数进来）
+
+// 瓦数两个：adapterW 是充电器额定功率（标题里，说明插的是什么头），nowW 是此刻真正充进电池的功率（灵动岛左边 + 横幅补充里）。
+// 灵动岛上显示实际功率，不显示额定功率（同一个充电头额定每次都一样，看着像写死的）
+static void XRHShowPlugIn(double adapterW, BOOL wireless, double level, double minutes, int target, double nowW) {
+    NSString *watts = isnan(adapterW) || adapterW <= 0 ? nil : [NSString stringWithFormat:@"%.0fW", adapterW];
+    NSString *now = isnan(nowW) || nowW <= 0 ? nil : [NSString stringWithFormat:nowW < 10 ? @"%.1fW" : @"%.0fW", nowW];
+    NSString *title = wireless ? (watts ? [NSString stringWithFormat:XRHText(@"%@ 无线充电", @"%@ Wireless"), watts] : XRHText(@"无线充电", @"Wireless Charging"))
+                               : (watts ? [NSString stringWithFormat:XRHText(@"%@ 充电器", @"%@ Charger"), watts] : XRHText(@"正在充电", @"Charging"));
+    NSString *detail, *shortDetail;
+    if (level >= target) {
+        detail = target < 100 ? [NSString stringWithFormat:XRHText(@"已经到上限 %d%%，不会再充", @"Already at the %d%% limit"), target]
+                              : XRHText(@"已充满", @"Fully charged");
+        shortDetail = target < 100 ? XRHText(@"已到上限", @"At limit") : XRHText(@"已充满", @"Full");
+    } else if (isnan(minutes)) {
+        detail = target < 100 ? [NSString stringWithFormat:XRHText(@"会充到 %d%% 停", @"Will stop at %d%%"), target] : nil;
+        shortDetail = target < 100 ? [NSString stringWithFormat:XRHText(@"到%d%%", @"to %d%%"), target] : XRHText(@"充电中", @"Charging");
+    } else {
+        detail = target < 100 ? [NSString stringWithFormat:XRHText(@"%@到 %d%%", @"%@ to %d%%"), XRHLongDuration(minutes), target]
+                              : [NSString stringWithFormat:XRHText(@"%@充满", @"Full in %@"), XRHLongDuration(minutes)];
+        shortDetail = XRHShortDuration(minutes);
+    }
+    if (now && level < target) {
+        NSString *nowText = [NSString stringWithFormat:XRHText(@"现在 %@", @"Now %@"), now];
+        detail = detail ? [NSString stringWithFormat:XRHText(@"%@，%@", @"%@, %@"), nowText, detail] : nowText;
+    }
+    // 长条：左「正在充电 / 无线充电 / 已到上限 / 已充满」，右 此刻功率
+    NSString *label = level >= target ? (target < 100 ? XRHText(@"已到上限", @"At Limit") : XRHText(@"已充满", @"Fully Charged"))
+                                      : (wireless ? XRHText(@"无线充电", @"Wireless") : XRHText(@"正在充电", @"Charging"));
+    XRHShowToastFull(XRHToastInfo, @"bolt.fill", title, detail, now ?: watts ?: XRHText(@"充电", @"On"), shortDetail,
+                     label, now ?: watts ?: [NSString stringWithFormat:@"%.0f%%", level]);
+}
+
+// level 是停下来时的实际电量，不是设置里的上限：充得快时 xrhead 会提前 1% 停（80% 的上限可能停在 79%），显示上限会对不上
+static void XRHShowLimit(int level) {
+    XRHShowToastFull(XRHToastInfo, @"checkmark",
+                 [NSString stringWithFormat:XRHText(@"已充到 %d%%，停止充电", @"Reached %d%%, charging paused"), level],
+                 XRHText(@"现在直接用电源供电，电池不充也不放", @"Running on the charger; the battery is resting"),
+                 [NSString stringWithFormat:@"%d%%", level], XRHText(@"已停充", @"Paused"),
+                 XRHText(@"已停止充电", @"Charging Paused"), [NSString stringWithFormat:@"%d%%", level]);
+}
+
+static void XRHShowSlow(double watts, BOOL fiveVolt) {
+    NSString *w = [NSString stringWithFormat:@"%.0fW", isnan(watts) ? 5 : MAX(watts, 1)];
+    if (fiveVolt) {
+        XRHShowToastFull(XRHToastWarning, @"xrh.bolt.half", XRHText(@"不支持快充", @"No Fast Charging"),
+                     XRHText(@"线或充电头只能跑 5V，换支持 PD 快充的试试", @"The cable or charger only does 5 V; try a USB-C PD one"),
+                     @"5V", XRHText(@"充电慢", @"Slow"), XRHText(@"不支持快充", @"No Fast Charge"), @"5V");
+    } else {
+        XRHShowToastFull(XRHToastWarning, @"xrh.bolt.half", XRHText(@"充电很慢", @"Charging Slowly"),
+                     XRHText(@"换根线或换个充电头试试", @"Try another cable or charger"),
+                     w, XRHText(@"充电慢", @"Slow"), XRHText(@"充电很慢", @"Charging Slowly"), w);
+    }
+}
+
+static void XRHShowHot(double temp, BOOL severe) {
+    NSString *t = [NSString stringWithFormat:@"%.0f℃", temp];
+    XRHShowToastFull(XRHToastWarning, @"thermometer.high",
+                 [NSString stringWithFormat:XRHText(@"电池 %.0f℃", @"Battery %.0f °C"), temp],
+                 severe ? XRHText(@"过热，拔掉充电线、退出大型游戏", @"Too hot: unplug and close heavy apps")
+                        : XRHText(@"偏热，先歇一会儿，别边充边玩", @"Running warm, take a break"),
+                 t, severe ? XRHText(@"过热", @"Hot") : XRHText(@"偏热", @"Warm"),
+                 severe ? XRHText(@"电池过热", @"Battery Hot") : XRHText(@"电池偏热", @"Battery Warm"), t);
+}
+
+static void XRHShowUnplug(double level, double gained, double minutes) {
+    XRHShowToastFull(XRHToastInfo, @"powerplug.fill",
+                 [NSString stringWithFormat:XRHText(@"这次充了 %.0f%%", @"Charged %.0f%%"), gained],
+                 [NSString stringWithFormat:XRHText(@"用时%@，现在 %.0f%%", @"Took %@, now at %.0f%%"), XRHLongDuration(minutes), level],
+                 [NSString stringWithFormat:@"%.0f%%", level], [NSString stringWithFormat:@"+%.0f%%", gained],
+                 XRHText(@"本次充入", @"Charged"), [NSString stringWithFormat:@"+%.0f%%", gained]);
+}
+
+static void XRHShowDrain(double watts, double minutesLeft) {
+    XRHShowToastFull(XRHToastWarning, @"xrh.battery.drain", XRHText(@"耗电很快", @"Draining Fast"),
+                 isnan(minutesLeft) ? XRHText(@"最近一分钟平均功率很高", @"High power use over the last minute")
+                                    : [NSString stringWithFormat:XRHText(@"按现在的用法%@用完", @"At this rate, empty in %@"), XRHLongDuration(minutesLeft)],
+                 [NSString stringWithFormat:@"%.0fW", watts], isnan(minutesLeft) ? XRHText(@"耗电快", @"Fast") : XRHShortDuration(minutesLeft),
+                 XRHText(@"耗电很快", @"Draining Fast"), [NSString stringWithFormat:@"%.0fW", watts]);
+}
+
+static void XRHShowFull(void) {
+    XRHShowToastFull(XRHToastInfo, @"battery.100.bolt", XRHText(@"已充满", @"Fully Charged"),
+                 XRHText(@"可以拔掉充电线了", @"You can unplug now"), @"100%", XRHText(@"已充满", @"Full"),
+                 XRHText(@"已充满", @"Fully Charged"), @"100%");
+}
+
+static void XRHShowThrottle(double temp) {
+    NSString *t = isnan(temp) ? @"—" : [NSString stringWithFormat:@"%.0f℃", temp];
+    XRHShowToastFull(XRHToastWarning, @"thermometer.medium", XRHText(@"充电已降速", @"Charging Slowed"),
+                 [NSString stringWithFormat:XRHText(@"电池 %@，系统在限流保护电池", @"Battery at %@; iOS is limiting charging"), t],
+                 t, XRHText(@"已降速", @"Slowed"), XRHText(@"过热降速", @"Heat Throttled"), t);
+}
+
+static void XRHShowStandby(double drop, double hours) {
+    NSString *dur = XRHShortDuration(hours * 60);
+    if ([dur hasPrefix:@"约"]) dur = [dur substringFromIndex:1];
+    if ([dur hasPrefix:@"~"]) dur = [dur substringFromIndex:1];
+    XRHShowToastFull(XRHToastWarning, @"moon.zzz.fill",
+                 ([XRHText(@"zh", @"en") isEqualToString:@"zh"] ? [NSString stringWithFormat:@"锁屏%@掉了 %.0f%%", XRHLongDuration(hours * 60), drop]
+                                                                   : [NSString stringWithFormat:@"Lost %.0f%% while locked", drop]),
+                 XRHText(@"可能有 App 在后台耗电", @"An app may be draining it in the background"),
+                 [NSString stringWithFormat:@"-%.0f%%", drop], dur,
+                 XRHText(@"锁屏掉电", @"Standby Drain"), [NSString stringWithFormat:@"-%.0f%%", drop]);
+}
+
+static void XRHShowBedtime(double level) {
+    XRHShowToastFull(XRHToastWarning, @"moon.fill",
+                 [NSString stringWithFormat:XRHText(@"电量 %.0f%%，睡前记得充电", @"%.0f%% left, charge before bed"), level],
+                 XRHText(@"按现在的电量可能撑不到明早", @"It may not last until morning"),
+                 [NSString stringWithFormat:@"%.0f%%", level], XRHText(@"记得充电", @"Charge"),
+                 XRHText(@"睡前记得充电", @"Charge Tonight"), [NSString stringWithFormat:@"%.0f%%", level]);
+}
+
+static void XRHShowCold(double temp) {
+    NSString *t = [NSString stringWithFormat:@"%.0f℃", temp];
+    XRHShowToastFull(XRHToastWarning, @"snowflake", [NSString stringWithFormat:XRHText(@"电池 %@，低温充电", @"Charging at %@"), t],
+                 XRHText(@"太冷时充电伤电池，等手机回暖再充", @"Charging in the cold wears the battery; let it warm up first"),
+                 t, XRHText(@"低温充电", @"Cold"), XRHText(@"低温充电", @"Cold Charging"), t);
+}
+
+static void XRHShowFlaky(NSInteger times) {
+    XRHShowToastFull(XRHToastWarning, @"cable.connector",
+                 [NSString stringWithFormat:XRHText(@"1 分钟内断开了 %ld 次", @"Disconnected %ld times in a minute"), (long)times],
+                 XRHText(@"线或接口可能松了，清理接口或换根线", @"The cable or port may be loose; clean the port or try another cable"),
+                 [NSString stringWithFormat:XRHText(@"%ld次", @"%ldx"), (long)times], XRHText(@"接触不良", @"Loose"),
+                 XRHText(@"接触不良", @"Loose Cable"), [NSString stringWithFormat:XRHText(@"%ld次", @"%ldx"), (long)times]);
+}
+
+static int XRHTargetLevel(void) {
+    return (int)lround(XRHDouble(kXRHAlertTargetLevel, 90, 50, 100));
+}
+
+static void XRHShowTarget(int target) {
+    XRHShowToastFull(XRHToastInfo, @"flag.checkered",
+                 [NSString stringWithFormat:XRHText(@"已充到 %d%%", @"Reached %d%%"), target],
+                 XRHText(@"可以拔掉充电线了", @"You can unplug now"),
+                 [NSString stringWithFormat:@"%d%%", target], XRHText(@"到点了", @"Done"),
+                 XRHText(@"已充到目标", @"Target Reached"), [NSString stringWithFormat:@"%d%%", target]);
+}
+
+// 睡前提醒的「那一晚」：22～24 点算当天，0～2 点算前一天；其他时间返回 nil
+static NSString *XRHBedtimeNight(void) {
+    NSDate *now = [NSDate date];
+    NSInteger hour = [NSCalendar.currentCalendar component:NSCalendarUnitHour fromDate:now];
+    if (hour >= 2 && hour < 22) return nil;
+    NSDate *day = hour < 2 ? [now dateByAddingTimeInterval:-3 * 3600] : now;
+    NSDateFormatter *f = [NSDateFormatter new];
+    f.dateFormat = @"yyyy-MM-dd";
+    return [f stringFromDate:day];
+}
+
+static void XRHShowStopped(double level) {
+    XRHShowToastFull(XRHToastWarning, @"powerplug",
+                 XRHText(@"插着电但没在充", @"Plugged In, Not Charging"),
+                 XRBatteryAdapterIsWireless() ? XRHText(@"无线充电可能没对准，挪一下手机", @"The wireless charger may be misaligned")
+                                 : XRHText(@"可能是温度保护或充电器异常", @"Possibly heat protection or a charger issue"),
+                 [NSString stringWithFormat:@"%.0f%%", level], XRHText(@"未充电", @"Not charging"),
+                 XRHText(@"插着没在充", @"Not Charging"), [NSString stringWithFormat:@"%.0f%%", level]);
+}
+
+// 「插着却不充」：接着电源、没在充、没充满、电量 < 79%（避开系统优化充电停在 80%），而且不是 xrhead 停的
+static BOOL XRHLooksStopped(double level, int *reason) {
+    NSDictionary *charger = XRBatteryObject(@"ChargerData");
+    int r = [charger isKindOfClass:NSDictionary.class] ? [charger[@"NotChargingReason"] intValue] : 0;
+    if (reason) *reason = r;
+    if (!XRBatteryExternalConnected() || XRBatteryIsCharging() || XRBatteryFullyCharged() || isnan(level) || level >= 79) return NO;
+    if (XRHLimitActive()) {
+        if (XRHLimitInhibited()) return NO;
+    }
+    return r != 0;
+}
+
+#pragma mark - 插上电源：等电流稳一点、等插电弹窗关掉再弹
+
+static void XRHPlugInWhenReady(NSMutableArray<NSNumber *> *amps, int tries) {
+    if (!gConnected) return;
+    // 插电弹窗开着就等它关（最多等 1 分钟，期间照样记电流）
+    XRHPush(amps, XRBatteryAmperage(), 8);
+    // 刚插上电流还在往上爬（真机：第 6 秒才 194mA，算出「12 小时充满」）：等最近 3 次相差不超过 15%、且 > 300mA 才算稳，最多等 25 秒
+    BOOL stable = NO;
+    if (amps.count >= 6) {
+        double lo = INFINITY, hi = -INFINITY;
+        for (NSUInteger i = amps.count - 3; i < amps.count; i++) { lo = MIN(lo, amps[i].doubleValue); hi = MAX(hi, amps[i].doubleValue); }
+        stable = lo > 300 && (hi - lo) <= 0.15 * (hi + lo) / 2;
+    }
+    if (((!stable && tries < 25) || XRHChargePromptShowing()) && tries < 60) {
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, NSEC_PER_SEC), dispatch_get_main_queue(), ^{ XRHPlugInWhenReady(amps, tries + 1); });
+        return;
+    }
+    if (XRHChargePromptShowing() || !XRHAlertTake(XRHAlertPlugIn, YES)) return;
+    // 弹窗里可能刚点了「这次充满」，偏好要重新读
+    [[XRHPrefs shared] reload];
+    int target = XRHLimitActive() ? XRHLimitMax() : 100;
+    double level = XRBatteryLevel(), full = XRBatteryFullCapacity();
+    double avg = XRHAverage(amps, MIN(amps.count, 3));
+    double minutes = (!isnan(avg) && avg > 300 && !isnan(full) && !isnan(level)) ? XRHMinutesToTarget(level, target, full, avg) : NAN;
+    if (minutes > 6 * 60) minutes = NAN;   // 电流还没上来时算出来的大数不可信，宁可不写时间
+    XRHDebugLog(@"[Alert] 插电 adapter=%.0fW level=%.0f avg=%.0fmA target=%d minutes=%.0f", XRBatteryAdapterWatts(), level, avg, target, minutes);
+    // 显示的功率用充电头送进来的总功率（同数显线）；预计时间仍按充进电池的电流算
+    double nowW = XRBatteryInputWatts();
+    if (isnan(nowW)) {
+        double volts = XRBatteryVoltage();
+        nowW = (!isnan(avg) && !isnan(volts)) ? fabs(volts * avg) / 1e6 : NAN;
+    }
+    XRHDebugLog(@"[Alert] 插电 实际 %.1fW", nowW);
+    XRHShowPlugIn(XRBatteryAdapterWatts(), XRBatteryAdapterIsWireless(), level, minutes, target, nowW);
+}
+
+#pragma mark - 定时检查
+
+static void XRHAlertTick(void);
+
+static void XRHSetTimer(NSTimeInterval interval) {
+    if (gTimer && gTimerInterval == interval) return;
+    if (gTimer) dispatch_source_cancel(gTimer);
+    gTimerInterval = interval;
+    gTimer = dispatch_source_create(DISPATCH_SOURCE_TYPE_TIMER, 0, 0, dispatch_get_main_queue());
+    dispatch_source_set_timer(gTimer, dispatch_time(DISPATCH_TIME_NOW, (int64_t)(interval * NSEC_PER_SEC)),
+                              (uint64_t)(interval * NSEC_PER_SEC), (uint64_t)(NSEC_PER_SEC));
+    dispatch_source_set_event_handler(gTimer, ^{ XRHAlertTick(); });
+    dispatch_resume(gTimer);
+}
+
+static void XRHCheckHot(double temp) {
+    if (isnan(temp)) return;
+    if (temp < kXRHHotRearm) { gHotLevel = 0; return; }
+    int level = temp >= kXRHHotSevere ? 2 : temp >= kXRHHotWarn ? 1 : 0;
+    if (level <= gHotLevel) return;
+    // 偏热 → 过热不受冷却限制（更严重了得说）；同一级 30 分钟内只弹一次
+    if (level == 2 && gHotLevel == 1) gLastShown[XRHAlertHot] = 0;
+    if (!XRHAlertTake(XRHAlertHot, NO)) return;
+    gHotLevel = level;
+    XRHDebugLog(@"[Alert] 温度 %.1f level=%d", temp, level);
+    XRHShowHot(temp, level == 2);
+}
+
+static void XRHAlertTick(void) {
+    if (XRHScreenBlanked()) {
+        // 灭屏时不读；把旧读数清掉，亮屏后重新攒，免得「1 分钟平均」里混着灭屏前的数
+        [gWatts removeAllObjects];
+        [gAmps removeAllObjects];
+        return;
+    }
+    BOOL anyOn = NO;
+    for (int i = 0; i < XRHAlertCount; i++) anyOn |= XRHAlertOn(i);
+    if (!anyOn) return;
+
+    XRHCheckHot(XRBatteryTemperature());
+    double watts = XRBatteryPowerWatts(), level = XRBatteryLevel();   // 接电源时是充电头送进来的总功率（同数显线）
+
+    if (gConnected) {
+        XRHPush(gWatts, watts, 6);
+        // 2 到上限停充（看 xrhead 写的状态文件：从没停到停了）
+        if (XRHLimitActive()) {
+            BOOL inhibited = XRHLimitInhibited();
+            if (inhibited && !gWasInhibited && XRHAlertTake(XRHAlertLimit, YES)) {
+                XRHDebugLog(@"[Alert] 到上限 level=%.0f", level);
+                XRHShowLimit(isnan(level) ? XRHLimitMax() : (int)lround(level));
+            }
+            gWasInhibited = inhibited;
+        }
+        // 7 充满：没开上限、到 100%（插上时已经满的不算，插的时候就记成弹过了）
+        if (!XRHLimitActive() && (XRBatteryFullyCharged() || (!isnan(level) && level >= 100)) && XRHAlertTake(XRHAlertFull, YES)) {
+            XRHDebugLog(@"[Alert] 充满");
+            XRHShowFull();
+        }
+        // 8 降速：TimeChargingThermallyLimited 比上次大 = 这几秒在因过热限流
+        NSDictionary *charger = XRBatteryObject(@"ChargerData");
+        double thermal = [charger isKindOfClass:NSDictionary.class] && [charger[@"TimeChargingThermallyLimited"] isKindOfClass:NSNumber.class]
+                         ? [charger[@"TimeChargingThermallyLimited"] doubleValue] : NAN;
+        if (!isnan(thermal) && !isnan(gThermalBase) && thermal > gThermalBase && XRHAlertTake(XRHAlertThrottle, YES)) {
+            XRHDebugLog(@"[Alert] 降速 thermal %.0f → %.0f", gThermalBase, thermal);
+            XRHShowThrottle(XRBatteryTemperature());
+        }
+        if (!isnan(thermal)) gThermalBase = thermal;
+        // 11 低温充电：在充、电池 < 5 ℃；升到 8 ℃ 以上才会再弹
+        double temp = XRBatteryTemperature();
+        if (!isnan(temp) && temp > kXRHColdRearm) gColdShown = NO;
+        if (!gColdShown && XRBatteryIsCharging() && !isnan(temp) && temp < kXRHColdWarn && XRHAlertTake(XRHAlertCold, NO)) {
+            gColdShown = YES;
+            XRHDebugLog(@"[Alert] 低温充电 %.1f", temp);
+            XRHShowCold(temp);
+        }
+        // 13 到点：充到自己设的电量（插上时已经过了就不算，插的时候记成弹过）
+        if (!isnan(level) && level >= XRHTargetLevel() && XRHAlertTake(XRHAlertTarget, YES)) {
+            XRHDebugLog(@"[Alert] 到点 %.0f", level);
+            XRHShowTarget(XRHTargetLevel());
+        }
+        // 14 中断：插上 30 秒后，连续 30 秒（6 次）都是「插着却不充」；不充电原因的编码记进调试日志，以后好细分
+        int reason = 0;
+        if (CFAbsoluteTimeGetCurrent() - gPlugTime > 30 && XRHLooksStopped(level, &reason)) gStoppedTicks++;
+        else gStoppedTicks = 0;
+        if (gStoppedTicks >= 6 && XRHAlertTake(XRHAlertStopped, YES)) {
+            XRHDebugLog(@"[Alert] 中断 level=%.0f NotChargingReason=%d", level, reason);
+            XRHShowStopped(level);
+        }
+        // 3 充电很慢：有线、在充、电量 < 80%；只跑 5V，或功率连续 30 秒（6 次）< 5W
+        if (!XRBatteryAdapterIsWireless() && XRBatteryIsCharging() && !isnan(level) && level < 80
+            && CFAbsoluteTimeGetCurrent() - gPlugTime > 45) {   // 刚插上电流在往上爬：45 秒后、30 秒的窗口里全是爬升之后的读数才判断
+            double v = XRBatteryAdapterVoltage();
+            BOOL fiveVolt = !isnan(v) && v <= 5.5;
+            BOOL slow = gWatts.count >= 6;
+            for (NSNumber *w in gWatts) if (w.doubleValue >= kXRHSlowWatts) slow = NO;
+            if ((fiveVolt || slow) && XRHAlertTake(XRHAlertSlow, YES)) {
+                XRHDebugLog(@"[Alert] 充电慢 %.1fW %.1fV", watts, v);
+                XRHShowSlow(watts, fiveVolt);
+            }
+        }
+    } else {
+        // 10 睡前：22～2 点、没插线、电量 < 30%，每晚一次
+        NSString *night = XRHBedtimeNight();
+        if (night && ![night isEqualToString:gBedtimeNight] && !isnan(level) && level < kXRHBedtimeLevel && XRHAlertTake(XRHAlertBedtime, NO)) {
+            gBedtimeNight = night;
+            XRHDebugLog(@"[Alert] 睡前 %.0f", level);
+            XRHShowBedtime(level);
+        }
+        // 6 耗电很快：最近 1 分钟（6 次）平均 > 6W
+        XRHPush(gWatts, watts, 6);
+        XRHPush(gAmps, XRBatteryAmperage(), 6);
+        double avgW = XRHAverage(gWatts, 6);
+        if (!isnan(avgW) && avgW > kXRHDrainWatts && XRHAlertTake(XRHAlertDrain, NO)) {
+            double avgA = XRHAverage(gAmps, gAmps.count), full = XRBatteryFullCapacity();
+            double left = (!isnan(avgA) && avgA < -50 && !isnan(level) && !isnan(full)) ? level / 100 * full / -avgA * 60 : NAN;
+            XRHDebugLog(@"[Alert] 耗电快 %.1fW 还能用 %.0f 分钟", avgW, left);
+            XRHShowDrain(avgW, left);
+        }
+    }
+}
+
+#pragma mark - 插拔
+
+static void XRHAlertPowerChanged(void) {
+    BOOL connected = XRBatteryExternalConnected();
+    if (connected == gConnected) return;
+    gConnected = connected;
+    [gWatts removeAllObjects];   // 插拔前后的功率不是一回事，混着算不准
+    [gAmps removeAllObjects];
+
+    if (connected) {
+        gPlugLevel = XRBatteryLevel();
+        gPlugTime = CFAbsoluteTimeGetCurrent();
+        memset(gShownThisPlug, 0, sizeof(gShownThisPlug));
+        if (XRBatteryFullyCharged() || gPlugLevel >= 100) gShownThisPlug[XRHAlertFull] = YES;   // 插上时已经满了：不报「充满」
+        if (gPlugLevel >= XRHTargetLevel()) gShownThisPlug[XRHAlertTarget] = YES;              // 插上时已经过了「到点」的电量
+        gThermalBase = NAN;
+        gStoppedTicks = 0;
+        if (gBlankTime > 0) gBlankPlugged = YES;
+        gWasInhibited = XRHLimitInhibited();
+        XRHSetTimer(5);
+        if ([XRHPrefs shared].enabled && XRHAlertOn(XRHAlertPlugIn)) XRHPlugInWhenReady([NSMutableArray array], 0);
+        return;
+    }
+
+    XRHSetTimer(10);
+    // 12 接触不良：1 分钟内拔了 ≥ 3 次（线松了时插拔通知会一阵一阵地来）
+    NSTimeInterval nowT = CFAbsoluteTimeGetCurrent();
+    [gUnplugTimes addObject:@(nowT)];
+    while (gUnplugTimes.count && nowT - gUnplugTimes.firstObject.doubleValue > 60) [gUnplugTimes removeObjectAtIndex:0];
+    if (gUnplugTimes.count >= 3 && XRHAlertTake(XRHAlertFlaky, NO)) {
+        XRHDebugLog(@"[Alert] 接触不良 %lu 次", (unsigned long)gUnplugTimes.count);
+        XRHShowFlaky(gUnplugTimes.count);
+        gPlugLevel = NAN;
+        return;   // 这时候「拔线总结」没意义
+    }
+    // 5 拔线总结：插了至少 1 分钟、至少充了 1%
+    double level = XRBatteryLevel(), minutes = (CFAbsoluteTimeGetCurrent() - gPlugTime) / 60;
+    double gained = level - gPlugLevel;
+    XRHDebugLog(@"[Alert] 拔线 %.0f → %.0f（%.0f 分钟）", gPlugLevel, level, minutes);
+    if (!isnan(gained) && gained >= 0) { gLastGained = gained; gLastMinutes = minutes; gLastLevel = level; }
+    if (!isnan(gained) && gained >= 1 && minutes >= 1 && XRHAlertTake(XRHAlertUnplug, NO)) {
+        // 稍等一下，让系统拔线的动静先过去
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.6 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+            XRHShowUnplug(level, gained, minutes);
+        });
+    }
+    gPlugLevel = NAN;
+}
+
+#pragma mark - 待机掉电：灭屏记电量，亮屏算这段掉了多少
+
+static void XRHScreenChanged(void) {
+    if (XRHScreenBlanked()) {
+        gBlankLevel = XRBatteryLevel();
+        gBlankTime = CFAbsoluteTimeGetCurrent();
+        gBlankPlugged = gConnected;
+        return;
+    }
+    if (gBlankTime <= 0) return;
+    double hours = (CFAbsoluteTimeGetCurrent() - gBlankTime) / 3600, level = XRBatteryLevel();
+    double drop = gBlankLevel - level;
+    BOOL plugged = gBlankPlugged || gConnected;
+    gBlankTime = 0;
+    if (plugged || isnan(drop) || hours <= 0) return;
+    if (hours >= 0.5) { gLastStandbyDrop = MAX(drop, 0); gLastStandbyHours = hours; }
+    XRHDebugLog(@"[Alert] 锁屏 %.1f 小时掉 %.0f%%", hours, drop);
+    // 锁屏至少半小时、至少掉 3%、每小时 > 3%
+    if (hours < 0.5 || drop < 3 || drop / hours <= kXRHStandbyRate || !XRHAlertTake(XRHAlertStandby, NO)) return;
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(1.0 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+        XRHShowStandby(drop, hours);
+    });
+}
+
+#pragma mark - 设置页「试试看」：用手机此刻的真实数据弹一次（条件没满足也弹，说明现在是什么情况）
+
+static NSString *XRHWattsText(double w) {
+    return isnan(w) || w <= 0 ? @"—" : [NSString stringWithFormat:w < 10 ? @"%.1fW" : @"%.0fW", w];
+}
+
+static void XRHTryAlert(int n) {
+    [[XRHPrefs shared] reload];
+    BOOL connected = XRBatteryExternalConnected();
+    double level = XRBatteryLevel(), full = XRBatteryFullCapacity(), amps = XRBatteryAmperage();
+    NSString *levelText = isnan(level) ? @"—" : [NSString stringWithFormat:@"%.0f%%", level];
+    NSString *notPlugged = XRHText(@"未接电源", @"Unplugged");
+    XRHDebugLog(@"[Alert] 试试看 %d connected=%d level=%.0f amps=%.0f focus=%d", n, connected, level, amps, XRHFocusActive());
+    switch (n) {
+        case 1: {   // 插上电源
+            if (!connected) {
+                XRHShowToast(XRHToastInfo, @"bolt.fill", notPlugged, XRHText(@"插上电源后显示充电功率和预计时间", @"Plug in to see charging power and time"), @"—", notPlugged);
+                return;
+            }
+            int target = XRHLimitActive() ? XRHLimitMax() : 100;
+            double minutes = (!isnan(amps) && amps > 300 && !isnan(full) && !isnan(level)) ? XRHMinutesToTarget(level, target, full, amps) : NAN;
+            if (minutes > 6 * 60) minutes = NAN;
+            XRHShowPlugIn(XRBatteryAdapterWatts(), XRBatteryAdapterIsWireless(), level, minutes, target, XRBatteryInputWatts());
+            return;
+        }
+        case 2: {   // 到上限停充
+            if (XRHLimitActive() && connected && XRHLimitInhibited()) { XRHShowLimit(isnan(level) ? XRHLimitMax() : (int)lround(level)); return; }
+            BOOL on = XRHLimitActive();
+            XRHShowToast(XRHToastInfo, @"checkmark",
+                         [NSString stringWithFormat:XRHText(@"电量 %@", @"Battery %@"), levelText],
+                         on ? [NSString stringWithFormat:XRHText(@"到 %d%% 会停止充电", @"Charging stops at %d%%"), XRHLimitMax()]
+                            : XRHText(@"充电上限没有开启", @"Charge Limit is off"),
+                         levelText, on ? [NSString stringWithFormat:XRHText(@"到%d%%停", @"Stop %d%%"), XRHLimitMax()] : XRHText(@"未开上限", @"No limit"));
+            return;
+        }
+        case 3: {   // 充电很慢
+            if (!connected) {
+                XRHShowToast(XRHToastInfo, @"xrh.bolt.half", notPlugged, XRHText(@"有线充电时才会判断", @"Checked only while charging by cable"), @"—", notPlugged);
+                return;
+            }
+            double w = XRBatteryPowerWatts(), v = XRBatteryAdapterVoltage();
+            BOOL fiveVolt = !XRBatteryAdapterIsWireless() && !isnan(v) && v <= 5.5;
+            BOOL slow = fiveVolt || (!isnan(w) && w < kXRHSlowWatts);
+            if (slow) { XRHShowSlow(w, fiveVolt); return; }
+            XRHShowToast(XRHToastInfo, @"xrh.bolt.half",
+                         [NSString stringWithFormat:XRHText(@"充电功率 %@", @"Charging at %@"), XRHWattsText(w)],
+                         XRHText(@"速度正常，低于 5 W 才会提醒", @"Normal; alerts below 5 W"), XRHWattsText(w), XRHText(@"正常", @"Normal"));
+            return;
+        }
+        case 4: {   // 温度偏高
+            double t = XRBatteryTemperature();
+            if (!isnan(t) && t >= kXRHHotWarn) { XRHShowHot(t, t >= kXRHHotSevere); return; }
+            NSString *tt = isnan(t) ? @"—" : [NSString stringWithFormat:@"%.0f℃", t];
+            XRHShowToast(XRHToastInfo, @"thermometer.high",
+                         [NSString stringWithFormat:XRHText(@"电池 %@", @"Battery %@"), tt],
+                         XRHText(@"温度正常，到 40℃ 才会提醒", @"Normal; alerts at 40 °C"), tt, XRHText(@"正常", @"Normal"));
+            return;
+        }
+        case 5: {   // 拔线总结：插着线就说插上以来充了多少，没插就重放上一次
+            double gained = NAN, minutes = NAN, now = level;
+            if (connected && !isnan(gPlugLevel)) { gained = level - gPlugLevel; minutes = (CFAbsoluteTimeGetCurrent() - gPlugTime) / 60; }
+            else if (!isnan(gLastGained)) { gained = gLastGained; minutes = gLastMinutes; now = gLastLevel; }
+            if (isnan(gained)) {
+                XRHShowToast(XRHToastInfo, @"powerplug.fill", XRHText(@"还没有充电记录", @"No charging session yet"),
+                             XRHText(@"充一次电再拔线就会有", @"Charge and unplug once to see one"), levelText, @"+0%");
+                return;
+            }
+            XRHShowUnplug(now, MAX(gained, 0), MAX(minutes, 0));
+            return;
+        }
+        case 6: {   // 耗电很快
+            if (connected) {
+                XRHShowToast(XRHToastInfo, @"xrh.battery.drain", XRHText(@"接着电源", @"Plugged in"),
+                             XRHText(@"用电池时才会判断", @"Checked only on battery"), @"—", XRHText(@"充电中", @"Charging"));
+                return;
+            }
+            double w = XRBatteryWatts();
+            double left = (!isnan(amps) && amps < -50 && !isnan(level) && !isnan(full)) ? level / 100 * full / -amps * 60 : NAN;
+            if (!isnan(w) && w > kXRHDrainWatts) { XRHShowDrain(w, left); return; }
+            XRHShowToast(XRHToastInfo, @"xrh.battery.drain",
+                         [NSString stringWithFormat:XRHText(@"耗电 %@", @"Using %@"), XRHWattsText(w)],
+                         isnan(left) ? XRHText(@"耗电正常，高于 6 W 才会提醒", @"Normal; alerts above 6 W")
+                                     : [NSString stringWithFormat:XRHText(@"耗电正常，%@用完", @"Normal, empty in %@"), XRHLongDuration(left)],
+                         XRHWattsText(w), isnan(left) ? XRHText(@"正常", @"Normal") : XRHShortDuration(left));
+            return;
+        }
+        case 7: {   // 充满
+            if (connected && (XRBatteryFullyCharged() || level >= 100)) { XRHShowFull(); return; }
+            BOOL limit = XRHLimitActive();
+            XRHShowToast(XRHToastInfo, @"battery.100.bolt",
+                         [NSString stringWithFormat:XRHText(@"电量 %@", @"Battery %@"), levelText],
+                         limit ? XRHText(@"开着充电上限，不会充到 100%", @"Charge Limit is on; it won't reach 100%")
+                               : (connected ? XRHText(@"充到 100% 时提醒", @"Alerts at 100%") : notPlugged),
+                         levelText, limit ? XRHText(@"开着上限", @"Limit on") : (connected ? XRHText(@"充电中", @"Charging") : notPlugged));
+            return;
+        }
+        case 8: {   // 降速
+            double t = XRBatteryTemperature();
+            if (!connected) {
+                XRHShowToast(XRHToastInfo, @"thermometer.medium", notPlugged, XRHText(@"充电时才会判断", @"Checked only while charging"), @"—", notPlugged);
+                return;
+            }
+            NSDictionary *charger = XRBatteryObject(@"ChargerData");
+            double thermal = [charger isKindOfClass:NSDictionary.class] ? [charger[@"TimeChargingThermallyLimited"] doubleValue] : 0;
+            BOOL limited = !isnan(gThermalBase) && thermal > gThermalBase;
+            if (limited) { XRHShowThrottle(t); return; }
+            NSString *tt = isnan(t) ? @"—" : [NSString stringWithFormat:@"%.0f℃", t];
+            XRHShowToast(XRHToastInfo, @"thermometer.medium", [NSString stringWithFormat:XRHText(@"电池 %@", @"Battery %@"), tt],
+                         XRHText(@"没有限流，充电速度正常", @"Not limited; charging normally"), tt, XRHText(@"未降速", @"Normal"));
+            return;
+        }
+        case 9: {   // 待机
+            if (isnan(gLastStandbyDrop)) {
+                XRHShowToast(XRHToastInfo, @"moon.zzz.fill", XRHText(@"还没有锁屏记录", @"No standby record yet"),
+                             XRHText(@"锁屏半小时以上再亮屏就会有", @"Lock for 30 min or more to get one"), levelText, XRHText(@"无记录", @"None"));
+                return;
+            }
+            if (gLastStandbyDrop >= 3 && gLastStandbyDrop / gLastStandbyHours > kXRHStandbyRate) { XRHShowStandby(gLastStandbyDrop, gLastStandbyHours); return; }
+            NSString *dur = XRHShortDuration(gLastStandbyHours * 60);
+            XRHShowToast(XRHToastInfo, @"moon.zzz.fill",
+                         [NSString stringWithFormat:XRHText(@"上次锁屏掉了 %.0f%%", @"Lost %.0f%% last time locked"), gLastStandbyDrop],
+                         [NSString stringWithFormat:XRHText(@"锁了%@，待机正常", @"Locked %@; normal"), XRHLongDuration(gLastStandbyHours * 60)],
+                         [NSString stringWithFormat:@"-%.0f%%", gLastStandbyDrop], dur);
+            return;
+        }
+        case 10: {   // 睡前
+            if (XRHBedtimeNight() && !connected && !isnan(level) && level < kXRHBedtimeLevel) { XRHShowBedtime(level); return; }
+            XRHShowToast(XRHToastInfo, @"moon.fill", [NSString stringWithFormat:XRHText(@"电量 %@", @"Battery %@"), levelText],
+                         connected ? XRHText(@"正在充电", @"Charging") : XRHText(@"晚上 10 点后低于 30% 会提醒", @"Alerts after 10 PM below 30%"),
+                         levelText, connected ? XRHText(@"充电中", @"Charging") : XRHText(@"够用", @"OK"));
+            return;
+        }
+        case 11: {   // 低温
+            double t = XRBatteryTemperature();
+            if (connected && XRBatteryIsCharging() && !isnan(t) && t < kXRHColdWarn) { XRHShowCold(t); return; }
+            NSString *tt = isnan(t) ? @"—" : [NSString stringWithFormat:@"%.0f℃", t];
+            XRHShowToast(XRHToastInfo, @"snowflake", [NSString stringWithFormat:XRHText(@"电池 %@", @"Battery %@"), tt],
+                         XRHText(@"充电时低于 5℃ 会提醒", @"Alerts when charging below 5 °C"), tt, XRHText(@"正常", @"Normal"));
+            return;
+        }
+        case 12: {   // 接触
+            NSTimeInterval nowT = CFAbsoluteTimeGetCurrent();
+            NSInteger times = 0;
+            for (NSNumber *t in gUnplugTimes) if (nowT - t.doubleValue <= 60) times++;
+            if (times >= 3) { XRHShowFlaky(times); return; }
+            XRHShowToast(XRHToastInfo, @"cable.connector",
+                         [NSString stringWithFormat:XRHText(@"最近 1 分钟断开 %ld 次", @"%ld disconnects in the last minute"), (long)times],
+                         XRHText(@"连接正常，断开 3 次以上会提醒", @"Connection is fine; alerts at 3 or more"),
+                         [NSString stringWithFormat:XRHText(@"%ld次", @"%ldx"), (long)times], XRHText(@"正常", @"Normal"));
+            return;
+        }
+        case 13: {   // 到点
+            int target = XRHTargetLevel();
+            if (connected && !isnan(level) && level >= target) { XRHShowTarget(target); return; }
+            XRHShowToast(XRHToastInfo, @"flag.checkered", [NSString stringWithFormat:XRHText(@"电量 %@", @"Battery %@"), levelText],
+                         [NSString stringWithFormat:XRHText(@"充到 %d%% 时提醒，不会停充", @"Alerts at %d%%; keeps charging"), target],
+                         levelText, [NSString stringWithFormat:XRHText(@"到%d%%", @"at %d%%"), target]);
+            return;
+        }
+        case 14: {   // 中断
+            if (!connected) {
+                XRHShowToast(XRHToastInfo, @"powerplug", notPlugged, XRHText(@"插着电时才会判断", @"Checked only while plugged in"), @"—", notPlugged);
+                return;
+            }
+            int reason = 0;
+            if (XRHLooksStopped(level, &reason)) { XRHShowStopped(level); return; }
+            XRHDebugLog(@"[Alert] 试试看 中断 NotChargingReason=%d charging=%d", reason, XRBatteryIsCharging());
+            XRHShowToast(XRHToastInfo, @"powerplug", [NSString stringWithFormat:XRHText(@"电量 %@", @"Battery %@"), levelText],
+                         XRBatteryIsCharging() ? XRHText(@"正在充电，连接正常", @"Charging normally") : XRHText(@"没在充，但属于正常情况（上限 / 充满）", @"Not charging, as expected (limit / full)"),
+                         levelText, XRBatteryIsCharging() ? XRHText(@"充电中", @"Charging") : XRHText(@"正常", @"Normal"));
+            return;
+        }
+    }
+}
+
+#pragma mark - 入口
+
+void XRHInitAlerts(void) {
+    gWatts = [NSMutableArray array];
+    gAmps = [NSMutableArray array];
+    gUnplugTimes = [NSMutableArray array];
+    for (int i = 0; i < XRHAlertCount; i++) gLastShown[i] = 0;
+    gConnected = XRBatteryExternalConnected();   // 注销时本来就插着线：不算新插上
+    if (gConnected) {
+        gPlugLevel = XRBatteryLevel();
+        gPlugTime = CFAbsoluteTimeGetCurrent();
+        gWasInhibited = XRHLimitInhibited();
+    }
+    notify_register_check("com.apple.springboard.hasBlankedScreen", &gBlankToken);
+    int blankWatch;
+    notify_register_dispatch("com.apple.springboard.hasBlankedScreen", &blankWatch, dispatch_get_main_queue(), ^(int t) { XRHScreenChanged(); });
+    XRHSetTimer(gConnected ? 5 : 10);
+
+    int token;
+    notify_register_dispatch("com.apple.system.powersources.source", &token, dispatch_get_main_queue(), ^(int t) { XRHAlertPowerChanged(); });
+    [NSNotificationCenter.defaultCenter addObserverForName:UIDeviceBatteryStateDidChangeNotification object:nil
+                                                     queue:NSOperationQueue.mainQueue usingBlock:^(NSNotification *n) { XRHAlertPowerChanged(); }];
+
+    // 设置页每条提醒后面的「试试看」：com.xyrith.xrhea/try-alert-1 … -9
+    for (int n = 1; n <= XRHAlertCount; n++) {
+        notify_register_dispatch([NSString stringWithFormat:@"com.xyrith.xrhea/try-alert-%d", n].UTF8String, &token,
+                                 dispatch_get_main_queue(), ^(int t) { XRHTryAlert(n); });
+    }
+
+#if XRH_DEBUG
+    // 调试：发 com.xyrith.xrhea/test-alert，状态值 1～6 选哪条（xrh_np 发不了状态值，就按顺序轮着弹）
+    static int next = 0;
+    notify_register_dispatch("com.xyrith.xrhea/test-alert", &token, dispatch_get_main_queue(), ^(int t) {
+        [[XRHPrefs shared] reload];
+        switch (next++ % XRHAlertCount) {
+            case 0: XRHShowPlugIn(27, NO, 45, 40, 80, 18.4); break;
+            case 1: XRHShowLimit(79); break;
+            case 2: XRHShowSlow(4, NO); break;
+            case 3: XRHShowHot(42, NO); break;
+            case 4: XRHShowUnplug(80, 35, 48); break;
+            case 5: XRHShowDrain(8.2, 125); break;
+            case 6: XRHShowFull(); break;
+            case 7: XRHShowThrottle(38); break;
+            case 8: XRHShowStandby(8, 2); break;
+            case 9: XRHShowBedtime(25); break;
+            case 10: XRHShowCold(3); break;
+            case 11: XRHShowFlaky(3); break;
+            case 12: XRHShowTarget(90); break;
+            case 13: XRHShowStopped(42); break;
+        }
+    });
+#endif
+}

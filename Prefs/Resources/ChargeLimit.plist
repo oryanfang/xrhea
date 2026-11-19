@@ -1,0 +1,136 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>items</key>
+	<array>
+		<dict>
+			<key>cell</key>
+			<string>PSGroupCell</string>
+			<key>footerText</key>
+			<string>到上限就停止充电，插着线时电源直接给手机供电，电池不充也不放。掉到恢复线以下才重新充，不会在上限附近反复启停。</string>
+		</dict>
+		<dict>
+			<key>PostNotification</key>
+			<string>com.xyrith.xrhea/prefschanged</string>
+			<key>cell</key>
+			<string>PSSwitchCell</string>
+			<key>default</key>
+			<false/>
+			<key>defaults</key>
+			<string>com.xyrith.xrhea</string>
+			<key>key</key>
+			<string>chargeLimit</string>
+			<key>label</key>
+			<string>启用充电上限</string>
+		</dict>
+		<dict>
+			<key>PostNotification</key>
+			<string>com.xyrith.xrhea/prefschanged</string>
+			<key>cell</key>
+			<string>PSLinkListCell</string>
+			<key>default</key>
+			<integer>80</integer>
+			<key>defaults</key>
+			<string>com.xyrith.xrhea</string>
+			<key>detail</key>
+			<string>PSListItemsController</string>
+			<key>key</key>
+			<string>chargeLimitMax</string>
+			<key>label</key>
+			<string>上限</string>
+			<key>validTitles</key>
+			<array>
+				<string>60%</string>
+				<string>70%</string>
+				<string>75%</string>
+				<string>80%</string>
+				<string>85%</string>
+				<string>90%</string>
+			</array>
+			<key>validValues</key>
+			<array>
+				<integer>60</integer>
+				<integer>70</integer>
+				<integer>75</integer>
+				<integer>80</integer>
+				<integer>85</integer>
+				<integer>90</integer>
+			</array>
+			<key>xrhRequires</key>
+			<string>chargeLimit</string>
+		</dict>
+		<dict>
+			<key>PostNotification</key>
+			<string>com.xyrith.xrhea/prefschanged</string>
+			<key>cell</key>
+			<string>PSLinkListCell</string>
+			<key>default</key>
+			<integer>5</integer>
+			<key>defaults</key>
+			<string>com.xyrith.xrhea</string>
+			<key>detail</key>
+			<string>PSListItemsController</string>
+			<key>key</key>
+			<string>chargeLimitGap</string>
+			<key>label</key>
+			<string>掉到多少再充</string>
+			<key>shortTitles</key>
+			<array>
+				<string>−3%</string>
+				<string>−5%</string>
+				<string>−10%</string>
+				<string>−20%</string>
+			</array>
+			<key>staticTextMessage</key>
+			<string>比如上限 80%、选「上限 − 5%」：充到 80% 停，用到 75% 以下再插着线时才重新充。</string>
+			<key>validTitles</key>
+			<array>
+				<string>上限 − 3%</string>
+				<string>上限 − 5%</string>
+				<string>上限 − 10%</string>
+				<string>上限 − 20%</string>
+			</array>
+			<key>validValues</key>
+			<array>
+				<integer>3</integer>
+				<integer>5</integer>
+				<integer>10</integer>
+				<integer>20</integer>
+			</array>
+			<key>xrhRequires</key>
+			<string>chargeLimit</string>
+		</dict>
+		<dict>
+			<key>PostNotification</key>
+			<string>com.xyrith.xrhea/prefschanged</string>
+			<key>cell</key>
+			<string>PSSwitchCell</string>
+			<key>default</key>
+			<true/>
+			<key>defaults</key>
+			<string>com.xyrith.xrhea</string>
+			<key>key</key>
+			<string>chargeLimitAsk</string>
+			<key>label</key>
+			<string>插上电源时询问</string>
+			<key>xrhRequires</key>
+			<string>chargeLimit</string>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSGroupCell</string>
+			<key>footerText</key>
+			<string>插上电源时弹窗问「确认」还是「这次充满」，外出前想充满就点「这次充满」，拔线后自动恢复上限。超过 30 天没充满过时，这个弹窗会提醒你充满一次（关掉询问也会提醒），让电量统计保持准确。</string>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSGroupCell</string>
+			<key>footerText</key>
+			<string>停充要等 30 秒左右才生效，为了不超过上限，充得快时会提前一点停，可能停在上限少 1%。请关掉系统「设置 › 电池 › 充电」里的优化充电，它和 xrhea 用的是同一个开关，会互相打架。关掉这里或卸载 xrhea 会马上恢复充电；重启手机也会恢复默认。</string>
+		</dict>
+	</array>
+	<key>title</key>
+	<string>充电上限</string>
+</dict>
+</plist>

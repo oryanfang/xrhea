@@ -1,0 +1,11 @@
+#!/bin/sh
+# 卸载 / 升级前：先恢复充电，再停掉充电上限服务（升级时 postinst 会重新加载）
+/usr/libexec/xrhea/xrhead reset >/dev/null 2>&1 || true
+launchctl unload /Library/LaunchDaemons/com.xyrith.xrhea.daemon.plist >/dev/null 2>&1 || true
+
+# 卸载时把桌面快捷 App 从主屏幕注销（升级时不用管，postinst 会重新注册）
+if [ "$1" = "remove" ] || [ "$1" = "purge" ]; then
+    uicache -u /Applications/xrheaLauncher.app >/dev/null 2>&1 || true
+    rm -f /var/mobile/Library/Caches/com.xyrith.xrhea.limit.plist
+fi
+exit 0

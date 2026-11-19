@@ -1,0 +1,332 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>
+• 退出不用的 App，尤其是游戏和导航
+• 调低屏幕亮度
+• 打开低电量模式</key>
+	<string>
+• Close apps you're not using, especially games and navigation
+• Lower the screen brightness
+• Turn on Low Power Mode</string>
+	<key>%.0f 次</key>
+	<string>%.0f</string>
+	<key>%ld 分</key>
+	<string>%ld min</string>
+	<key>%ld 小时</key>
+	<string>%ld h</string>
+	<key>%ld 小时 %ld 分</key>
+	<string>%ld h %ld min</string>
+	<key>22 点后电量 &lt; 30%</key>
+	<string>&lt; 30% after 10 PM</string>
+	<key>xrhea 的所有设置都会恢复默认。确定吗？</key>
+	<string>All xrhea settings will be restored to defaults. Continue?</string>
+	<key>• 拔掉充电线
+• 退出游戏等耗电大的 App
+• 取下手机壳，放在阴凉处</key>
+	<string>• Unplug the charger
+• Close games and other demanding apps
+• Take off the case and keep it somewhere cool</string>
+	<key>−10%</key>
+	<string>−10%</string>
+	<key>−20%</key>
+	<string>−20%</string>
+	<key>−3%</key>
+	<string>−3%</string>
+	<key>−5%</key>
+	<string>−5%</string>
+	<key>「自动」：有灵动岛用灵动岛，没有用横幅。
+「灵动岛」：从灵动岛左右展开，几秒后缩回去，点一下提前收起。
+「横幅」：从顶部滑下一张卡片，往上划或点一下收起。</key>
+	<string>Automatic: Dynamic Island if your phone has one, otherwise a banner.
+Dynamic Island: expands out of the island and shrinks back after a few seconds; tap to close early.
+Banner: a card slides down from the top; swipe up or tap to close.</string>
+	<key>上限</key>
+	<string>Limit</string>
+	<key>上限 − 10%</key>
+	<string>Limit − 10%</string>
+	<key>上限 − 20%</key>
+	<string>Limit − 20%</string>
+	<key>上限 − 3%</key>
+	<string>Limit − 3%</string>
+	<key>上限 − 5%</key>
+	<string>Limit − 5%</string>
+	<key>不支持快充</key>
+	<string>No Fast Charging</string>
+	<key>不要为了热闹而点亮每一个开关。</key>
+	<string>No need to light up every switch.</string>
+	<key>专注时静默</key>
+	<string>Silence During Focus</string>
+	<key>专注模式</key>
+	<string>Focus</string>
+	<key>中文</key>
+	<string>中文</string>
+	<key>中断</key>
+	<string>Stopped</string>
+	<key>低温</key>
+	<string>Cold</string>
+	<key>作者</key>
+	<string>Author</string>
+	<key>使用</key>
+	<string>Usage</string>
+	<key>使用电池</key>
+	<string>On Battery</string>
+	<key>停充</key>
+	<string>Paused</string>
+	<key>停充要等 30 秒左右才生效，为了不超过上限，充得快时会提前一点停，可能停在上限少 1%。请关掉系统「设置 › 电池 › 充电」里的优化充电，它和 xrhea 用的是同一个开关，会互相打架。关掉这里或卸载 xrhea 会马上恢复充电；重启手机也会恢复默认。</key>
+	<string>Stopping takes about 30 seconds, so to never go over the limit it stops a little early when charging fast and may end 1% below the limit. Turn off Optimized Charging in Settings › Battery › Charging: it uses the same switch as xrhea and they'll fight. Turning this off or uninstalling xrhea resumes charging right away; restarting the phone also resets it.</string>
+	<key>充到 %d%% 提醒</key>
+	<string>alert at %d%%</string>
+	<key>充到 100% 时</key>
+	<string>at 100%</string>
+	<key>充满</key>
+	<string>Full</string>
+	<key>充电</key>
+	<string>Charging</string>
+	<key>充电上限</key>
+	<string>Charge Limit</string>
+	<key>充电中</key>
+	<string>Charging</string>
+	<key>充电器</key>
+	<string>Charger</string>
+	<key>充电器和手机只谈到了 5 V，线或充电头不支持快充。
+• 换成支持 USB-C PD 快充的线和充电头</key>
+	<string>The charger and phone only agreed on 5 V, so the cable or charger doesn't support fast charging.
+• Use a cable and charger that support USB-C PD fast charging</string>
+	<key>充电太慢</key>
+	<string>Charging Slowly</string>
+	<key>充电时 &lt; 5 ℃</key>
+	<string>charging below 5 °C</string>
+	<key>充电预计已经算上了 80% 以后会变慢；用完预计按你此刻的用法算，换个用法就会变。</key>
+	<string>The charging estimate accounts for charging slowing down after 80%. Time left assumes you keep using the phone the way you are right now.</string>
+	<key>关于</key>
+	<string>About</string>
+	<key>到上限就停止充电，插着线时电源直接给手机供电，电池不充也不放。掉到恢复线以下才重新充，不会在上限附近反复启停。</key>
+	<string>Charging stops at the limit. While plugged in, the charger powers the phone directly and the battery neither charges nor drains. It only resumes below the resume level, so it won't flip on and off around the limit.</string>
+	<key>到上限时</key>
+	<string>at the limit</string>
+	<key>到点</key>
+	<string>Target</string>
+	<key>功率</key>
+	<string>Power</string>
+	<key>功率 &gt; 6 W</key>
+	<string>above 6 W</string>
+	<key>功率低于 5 W</key>
+	<string>under 5 W</string>
+	<key>勿扰时不弹</key>
+	<string>quiet during Focus</string>
+	<key>反馈问题</key>
+	<string>Report an Issue</string>
+	<key>取消</key>
+	<string>Cancel</string>
+	<key>只在 iOS 17.3.1 上测试过。需要 roothide 越狱环境，只装了巨魔的手机用不了。打开本页时会到 GitHub 查一次有没有新版本。</key>
+	<string>Only tested on iOS 17.3.1. Requires a roothide jailbreak; it won't work with TrollStore alone. Opening this page checks GitHub once for a new version.</string>
+	<key>启用 xrhea</key>
+	<string>Enable xrhea</string>
+	<key>启用充电上限</key>
+	<string>Enable Charge Limit</string>
+	<key>在 Sileo 中添加</key>
+	<string>Add in Sileo</string>
+	<key>型号</key>
+	<string>Model</string>
+	<key>型号是充电器自己报上来的名字（苹果的内部写法）。</key>
+	<string>The model is the name the charger reports (Apple's internal naming).</string>
+	<key>复制地址</key>
+	<string>Copy URL</string>
+	<key>复制问题信息</key>
+	<string>Copy Debug Info</string>
+	<key>好</key>
+	<string>OK</string>
+	<key>实时</key>
+	<string>Live</string>
+	<key>实际容量</key>
+	<string>Full Charge Capacity</string>
+	<key>实际容量是现在充满时能装多少电；最大容量 = 实际容量 ÷ 设计容量。</key>
+	<string>Full charge capacity is how much the battery holds when fully charged now. Maximum capacity = full charge ÷ design capacity.</string>
+	<key>容量</key>
+	<string>Capacity</string>
+	<key>已充满</key>
+	<string>Fully Charged</string>
+	<key>已到上限</key>
+	<string>At Limit</string>
+	<key>已到上限 %d%%</key>
+	<string>At Limit (%d%%)</string>
+	<key>已复制</key>
+	<string>Copied</string>
+	<key>已接电源，暂停充电</key>
+	<string>Plugged In, Not Charging</string>
+	<key>已重置</key>
+	<string>Reset Done</string>
+	<key>异常</key>
+	<string>Issues</string>
+	<key>当前电量</key>
+	<string>Current Charge</string>
+	<key>待机耗电</key>
+	<string>Standby Drain</string>
+	<key>循环次数</key>
+	<string>Cycle Count</string>
+	<key>总结</key>
+	<string>Summary</string>
+	<key>慢充</key>
+	<string>Slow</string>
+	<key>打开电池详情</key>
+	<string>opens battery details</string>
+	<key>把 xrhea 的所有设置恢复成默认值。完成后需要注销。</key>
+	<string>Restores every xrhea setting to its default. Respring afterwards.</string>
+	<key>拔线时显示充了多少</key>
+	<string>shows how much was added</string>
+	<key>按现在的速度，约 %@ 用完。</key>
+	<string>At this rate, about %@ left.</string>
+	<key>掉到多少再充</key>
+	<string>Resume At</string>
+	<key>接触不良</key>
+	<string>Loose Cable</string>
+	<key>提示</key>
+	<string>Alerts</string>
+	<key>提示样式</key>
+	<string>Style</string>
+	<key>插上电源时弹窗问「确认」还是「这次充满」，外出前想充满就点「这次充满」，拔线后自动恢复上限。超过 30 天没充满过时，这个弹窗会提醒你充满一次（关掉询问也会提醒），让电量统计保持准确。</key>
+	<string>When you plug in, xrhea asks whether to keep the limit or charge to 100% this time. Heading out? Tap "Charge to 100% This Time"; the limit comes back once you unplug. If it's been over 30 days since the last full charge, it reminds you to charge fully once (even with asking turned off) to keep the battery reading accurate.</string>
+	<key>插上电源时询问</key>
+	<string>Ask When Plugged In</string>
+	<key>插电</key>
+	<string>Plug-in</string>
+	<key>插着充电器，功率却一直低于 5 W。
+• 换一根线或换个充电头试试
+• 手机太热时也会自动降速</key>
+	<string>Plugged in, but power has stayed under 5 W.
+• Try a different cable or charger
+• The phone also slows charging when it's hot</string>
+	<key>插着电却不充</key>
+	<string>plugged in, not charging</string>
+	<key>无线</key>
+	<string>Wireless</string>
+	<key>显示充电功率</key>
+	<string>shows charging power</string>
+	<key>最大功率</key>
+	<string>Max Power</string>
+	<key>最大容量低于 80%</key>
+	<string>Maximum Capacity Below 80%</string>
+	<key>最大容量（相对新电池）</key>
+	<string>Maximum Capacity (relative to new)</string>
+	<key>有些设置要注销后才会完全恢复，现在注销吗？</key>
+	<string>Some settings only fully reset after a respring. Respring now?</string>
+	<key>有新版 %@</key>
+	<string>Update %@</string>
+	<key>横幅</key>
+	<string>Banner</string>
+	<key>正在充电</key>
+	<string>Charging</string>
+	<key>比如上限 80%、选「上限 − 5%」：充到 80% 停，用到 75% 以下再插着线时才重新充。</key>
+	<string>E.g. with an 80% limit and "Limit − 5%", charging stops at 80% and starts again once it's below 75% while plugged in.</string>
+	<key>注销</key>
+	<string>Respring</string>
+	<key>温度</key>
+	<string>Temperature</string>
+	<key>灵动岛</key>
+	<string>Dynamic Island</string>
+	<key>点击提示</key>
+	<string>Tap Alert</string>
+	<key>照常提醒 · 充电</key>
+	<string>Still Alert · Charging</string>
+	<key>照常提醒 · 异常</key>
+	<string>Still Alert · Issues</string>
+	<key>照常提醒 · 用电</key>
+	<string>Still Alert · Usage</string>
+	<key>版本</key>
+	<string>Version</string>
+	<key>状态</key>
+	<string>Status</string>
+	<key>现在耗电比平时快很多。</key>
+	<string>The battery is draining much faster than usual.</string>
+	<key>用电</key>
+	<string>Usage</string>
+	<key>电压</key>
+	<string>Voltage</string>
+	<key>电池 ≥ 40 ℃</key>
+	<string>battery ≥ 40 °C</string>
+	<key>电池信息</key>
+	<string>Battery</string>
+	<key>电池偏热</key>
+	<string>Battery Running Warm</string>
+	<key>电池已经明显老化，续航会变短。
+• 可以考虑换电池
+• 常插着线的话，打开「设置 › 电池 › 充电」里的 80% 上限，能延缓老化</key>
+	<string>The battery is noticeably worn and battery life will be shorter.
+• Consider replacing the battery
+• If you're often plugged in, turn on the 80% Limit in Settings › Battery › Charging to slow further wear</string>
+	<key>电池过热</key>
+	<string>Battery Too Hot</string>
+	<key>电流</key>
+	<string>Current</string>
+	<key>电量</key>
+	<string>Level</string>
+	<key>睡前</key>
+	<string>Bedtime</string>
+	<key>短条</key>
+	<string>Short</string>
+	<key>确定要注销（重启 SpringBoard）吗？</key>
+	<string>Respring (restart SpringBoard) now?</string>
+	<key>稍后</key>
+	<string>Later</string>
+	<key>约 %@ 充满</key>
+	<string>Full in about %@</string>
+	<key>约 %@ 到 %d%%</key>
+	<string>%@ to %d%%</string>
+	<key>约 %@ 用完</key>
+	<string>About %@ left</string>
+	<key>约40分钟</key>
+	<string>~40 min</string>
+	<key>耗电很快</key>
+	<string>Draining Fast</string>
+	<key>自动</key>
+	<string>Automatic</string>
+	<key>规格</key>
+	<string>Output</string>
+	<key>设计容量</key>
+	<string>Design Capacity</string>
+	<key>试试看</key>
+	<string>Try It</string>
+	<key>语言</key>
+	<string>Language</string>
+	<key>越狱环境</key>
+	<string>Jailbreak</string>
+	<key>跟随系统</key>
+	<string>System</string>
+	<key>软件源</key>
+	<string>Source</string>
+	<key>软件源与反馈</key>
+	<string>Source &amp; Feedback</string>
+	<key>软件源地址：https://oryanfang.github.io/repo/
+「复制问题信息」会复制 xrhea 版本、iOS 版本、机型和改过的设置，可以贴进反馈里。</key>
+	<string>Source: https://oryanfang.github.io/repo/
+"Copy Debug Info" copies the xrhea and iOS versions, device model and changed settings for pasting into a report.</string>
+	<key>过热</key>
+	<string>Hot</string>
+	<key>过热被限速</key>
+	<string>slowed by heat</string>
+	<key>这些数字怎么看</key>
+	<string>Understanding These Numbers</string>
+	<key>适用系统</key>
+	<string>Supported iOS</string>
+	<key>重置</key>
+	<string>Reset</string>
+	<key>重置所有设置</key>
+	<string>Reset All Settings</string>
+	<key>锁屏每小时 &gt; 3%</key>
+	<string>locked, &gt; 3% per hour</string>
+	<key>长条</key>
+	<string>Long</string>
+	<key>降速</key>
+	<string>Throttled</string>
+	<key>需注销</key>
+	<string>Respring</string>
+	<key>预计</key>
+	<string>Estimate</string>
+	<key>频繁断开</key>
+	<string>keeps disconnecting</string>
+	<key>高耗电</key>
+	<string>Drain</string>
+</dict>
+</plist>
