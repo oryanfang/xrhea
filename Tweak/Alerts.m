@@ -2,6 +2,7 @@
 // 用手机此刻的数据弹一次（XRHTryAlert）。显示的内容（灵动岛长条的左字右值、短条的短值、横幅的两行字）在各条的 XRHShowXxx 里。
 //
 //   充电  1 插电：插上后等电流稳了（最多 25 秒）、等插电弹窗关掉；显示充电头送进来的功率（同 USB 数显线），横幅带预计时间
+//           预计时间优先用「记住的充电速度」：每次充完按充电头记下 80% 前 / 后实际每分钟充几 %（XRH_RATES_FILE）
 //        13 到点（默认关）：充到自己设的电量（alertTargetLevel，默认 90%）提醒，不停充
 //         2 停充：充电上限停充了（xrhead 状态文件 inhibited 从 0 变 1），显示停下时的实际电量（可能比上限少 1%）
 //         7 充满：没开上限、充到 100%（插上时已满不算）
@@ -59,6 +60,11 @@ static const double kXRHBedtimeLevel = 30, kXRHColdWarn = 5, kXRHColdRearm = 8;
 static BOOL gColdShown;                         // 11 低温：弹过了，升到 8 ℃ 以上才会再弹
 static NSMutableArray<NSNumber *> *gUnplugTimes;   // 12 接触：最近的拔线时间
 static int gStoppedTicks;                       // 14 中断：连续几次读到「插着却不充」
+
+// 记住实际充电速度（插电提醒的预计时间用）：这次插着期间每变 1% 记一笔（系统的 powersources.percent 通知，灭屏也会来）
+static NSString *gRateKey;                      // 这次的充电头（「27W」「无线15W」）
+static double gFastL0 = NAN, gFastL1 = NAN, gTailL0 = NAN, gTailL1 = NAN;   // 80% 前 / 后这一段的起止电量
+static NSTimeInterval gFastT0, gFastT1, gTailT0, gTailT1;
 
 #pragma mark - 小工具
 
@@ -323,6 +329,76 @@ static BOOL XRHLooksStopped(double level, int *reason) {
     return r != 0;
 }
 
+#pragma mark - 记住实际充电速度
+
+// 插上时只看几十秒的电流算预计，会偏悲观：电流之后还会往上走（真机：插上 25 秒 1.9A，实际 45 分钟从 23% 充到 81%，
+// 按电流估的是 2 小时 10 分钟充满）。所以每次充完记下这个充电头实际每分钟充几 %，下次插同一个头直接用；
+// 分 80% 前（快）、80% 后（慢）两段，各自取新旧平均（新的占一半）
+static NSString *XRHRateKeyNow(void) {
+    double w = XRBatteryAdapterWatts();
+    if (isnan(w) || w <= 0) return nil;
+    return [NSString stringWithFormat:XRBatteryAdapterIsWireless() ? @"无线%.0fW" : @"%.0fW", w];
+}
+
+static NSDictionary *XRHLearnedRate(NSString *key) {
+    if (!key) return nil;
+    NSDictionary *all = [NSDictionary dictionaryWithContentsOfFile:XRH_RATES_FILE];
+    NSDictionary *r = all[key];
+    return [r isKindOfClass:NSDictionary.class] ? r : nil;
+}
+
+static void XRHRateReset(void) {
+    gFastL0 = gFastL1 = gTailL0 = gTailL1 = NAN;
+}
+
+// 电量每变一次记一笔：只记「真的在充」的时候（停充、充满后不记）
+static void XRHRateSample(void) {
+    if (!gConnected || !gRateKey || !XRBatteryIsCharging() || XRHLimitInhibited()) return;
+    double level = XRBatteryLevel();
+    if (isnan(level)) return;
+    NSTimeInterval now = CFAbsoluteTimeGetCurrent();
+    if (level <= 80) {
+        if (isnan(gFastL0)) { gFastL0 = level; gFastT0 = now; }
+        gFastL1 = level; gFastT1 = now;
+    }
+    if (level >= 80 && level <= 100) {
+        if (isnan(gTailL0)) { gTailL0 = level; gTailT0 = now; }
+        gTailL1 = level; gTailT1 = now;
+    }
+}
+
+// 拔线时：这一段充得够多（80% 前 ≥ 10%、80% 后 ≥ 8%）就记下来
+static void XRHRateLearn(void) {
+    if (!gRateKey) return;
+    NSMutableDictionary *all = [[NSDictionary dictionaryWithContentsOfFile:XRH_RATES_FILE] mutableCopy] ?: [NSMutableDictionary dictionary];
+    NSMutableDictionary *r = [all[gRateKey] isKindOfClass:NSDictionary.class] ? [all[gRateKey] mutableCopy] : [NSMutableDictionary dictionary];
+    BOOL changed = NO;
+    void (^learn)(NSString *, double, double, NSTimeInterval) = ^(NSString *k, double gained, double minimum, NSTimeInterval secs) {
+        if (isnan(gained) || gained < minimum || secs < 5 * 60) return;
+        double rate = gained / (secs / 60), old = [r[k] doubleValue];
+        r[k] = @(old > 0 ? (old + rate) / 2 : rate);
+    };
+    double before = [r[@"fast"] doubleValue] + [r[@"tail"] doubleValue];
+    learn(@"fast", gFastL1 - gFastL0, 10, gFastT1 - gFastT0);
+    learn(@"tail", gTailL1 - gTailL0, 8, gTailT1 - gTailT0);
+    changed = [r[@"fast"] doubleValue] + [r[@"tail"] doubleValue] != before;
+    XRHDebugLog(@"[Rate] %@ 80%%前 %.0f→%.0f（%.0f 分钟） 80%%后 %.0f→%.0f（%.0f 分钟） 记下 %@", gRateKey, gFastL0, gFastL1, (gFastT1 - gFastT0) / 60,
+                gTailL0, gTailL1, (gTailT1 - gTailT0) / 60, changed ? r : @"（太短，不记）");
+    if (!changed) return;
+    all[gRateKey] = r;
+    [all writeToFile:XRH_RATES_FILE atomically:YES];
+}
+
+// 按记住的速度算还要几分钟到 target（没有记录返回 NAN）。80% 后没记过就按 80% 前的 35%（同 XRBatteryEstimate.h 的经验值）
+static double XRHMinutesByRate(NSDictionary *r, double level, int target) {
+    double fast = [r[@"fast"] doubleValue], tail = [r[@"tail"] doubleValue];
+    if (fast <= 0 || isnan(level)) return NAN;
+    if (tail <= 0) tail = fast * kXRHTaperBefore80;
+    double m = MAX(0, MIN(target, 80) - level) / fast;
+    if (target > 80) m += MAX(0, target - MAX(level, 80)) / tail;
+    return m;
+}
+
 #pragma mark - 插上电源：等电流稳一点、等插电弹窗关掉再弹
 
 static void XRHPlugInWhenReady(NSMutableArray<NSNumber *> *amps, int tries) {
@@ -346,9 +422,14 @@ static void XRHPlugInWhenReady(NSMutableArray<NSNumber *> *amps, int tries) {
     int target = XRHLimitActive() ? XRHLimitMax() : 100;
     double level = XRBatteryLevel(), full = XRBatteryFullCapacity();
     double avg = XRHAverage(amps, MIN(amps.count, 3));
-    double minutes = (!isnan(avg) && avg > 300 && !isnan(full) && !isnan(level)) ? XRHMinutesToTarget(level, target, full, avg) : NAN;
+    if (!gRateKey) gRateKey = XRHRateKeyNow();   // 插上那一刻充电头信息可能还没报上来
+    // 这个充电头充过、记下了实际速度就用它；第一次用的充电头按此刻的电流算
+    NSDictionary *learned = XRHLearnedRate(gRateKey);
+    double minutes = XRHMinutesByRate(learned, level, target);
+    if (isnan(minutes)) minutes = (!isnan(avg) && avg > 300 && !isnan(full) && !isnan(level)) ? XRHMinutesToTarget(level, target, full, avg) : NAN;
     if (minutes > 6 * 60) minutes = NAN;   // 电流还没上来时算出来的大数不可信，宁可不写时间
-    XRHDebugLog(@"[Alert] 插电 adapter=%.0fW level=%.0f avg=%.0fmA target=%d minutes=%.0f", XRBatteryAdapterWatts(), level, avg, target, minutes);
+    XRHDebugLog(@"[Alert] 插电 adapter=%.0fW level=%.0f avg=%.0fmA target=%d minutes=%.0f（%@）", XRBatteryAdapterWatts(), level, avg, target, minutes,
+                learned ? [NSString stringWithFormat:@"按记住的速度 %@", learned] : @"按电流");
     // 显示的功率用充电头送进来的总功率（同数显线）；预计时间仍按充进电池的电流算
     double nowW = XRBatteryInputWatts();
     if (isnan(nowW)) {
@@ -497,6 +578,8 @@ static void XRHAlertPowerChanged(void) {
         if (gPlugLevel >= XRHTargetLevel()) gShownThisPlug[XRHAlertTarget] = YES;              // 插上时已经过了「到点」的电量
         gThermalBase = NAN;
         gStoppedTicks = 0;
+        gRateKey = XRHRateKeyNow();
+        XRHRateReset();
         if (gBlankTime > 0) gBlankPlugged = YES;
         gWasInhibited = XRHLimitInhibited();
         XRHSetTimer(5);
@@ -505,6 +588,8 @@ static void XRHAlertPowerChanged(void) {
     }
 
     XRHSetTimer(10);
+    XRHRateLearn();
+    XRHRateReset();
     // 12 接触不良：1 分钟内拔了 ≥ 3 次（线松了时插拔通知会一阵一阵地来）
     NSTimeInterval nowT = CFAbsoluteTimeGetCurrent();
     [gUnplugTimes addObject:@(nowT)];
@@ -573,7 +658,8 @@ static void XRHTryAlert(int n) {
                 return;
             }
             int target = XRHLimitActive() ? XRHLimitMax() : 100;
-            double minutes = (!isnan(amps) && amps > 300 && !isnan(full) && !isnan(level)) ? XRHMinutesToTarget(level, target, full, amps) : NAN;
+            double minutes = XRHMinutesByRate(XRHLearnedRate(XRHRateKeyNow()), level, target);
+            if (isnan(minutes)) minutes = (!isnan(amps) && amps > 300 && !isnan(full) && !isnan(level)) ? XRHMinutesToTarget(level, target, full, amps) : NAN;
             if (minutes > 6 * 60) minutes = NAN;
             XRHShowPlugIn(XRBatteryAdapterWatts(), XRBatteryAdapterIsWireless(), level, minutes, target, XRBatteryInputWatts());
             return;
@@ -737,6 +823,7 @@ void XRHInitAlerts(void) {
     for (int i = 0; i < XRHAlertCount; i++) gLastShown[i] = 0;
     gConnected = XRBatteryExternalConnected();   // 注销时本来就插着线：不算新插上
     if (gConnected) {
+        gRateKey = XRHRateKeyNow();
         gPlugLevel = XRBatteryLevel();
         gPlugTime = CFAbsoluteTimeGetCurrent();
         gWasInhibited = XRHLimitInhibited();
@@ -748,6 +835,11 @@ void XRHInitAlerts(void) {
 
     int token;
     notify_register_dispatch("com.apple.system.powersources.source", &token, dispatch_get_main_queue(), ^(int t) { XRHAlertPowerChanged(); });
+    // 电量每变 1% 系统会发这个（灭屏也会来），记充电速度用
+    notify_register_dispatch("com.apple.system.powersources.percent", &token, dispatch_get_main_queue(), ^(int t) {
+        if (!gRateKey && gConnected) gRateKey = XRHRateKeyNow();
+        XRHRateSample();
+    });
     [NSNotificationCenter.defaultCenter addObserverForName:UIDeviceBatteryStateDidChangeNotification object:nil
                                                      queue:NSOperationQueue.mainQueue usingBlock:^(NSNotification *n) { XRHAlertPowerChanged(); }];
 

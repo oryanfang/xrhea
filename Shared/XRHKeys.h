@@ -14,6 +14,9 @@
 // 充电上限服务 xrhead 写的状态文件（Daemon/main.m 里同一个路径），插件和设置页读
 #define XRH_LIMIT_STATE_FILE   @"/var/mobile/Library/Caches/com.xyrith.xrhea.limit.plist"
 
+// 记住的充电速度（插件写）：{充电头: {fast: 80% 前每分钟几 %, tail: 80% 后每分钟几 %}}，充电头按「27W」「无线15W」分
+#define XRH_RATES_FILE         @"/var/mobile/Library/Caches/com.xyrith.xrhea.rates.plist"
+
 // 提示样式：0 自动（有灵动岛用灵动岛）/ 1 灵动岛 / 2 横幅
 #define kXRHToastStyle         @"toastStyle"
 #define kXRHIslandStyle        @"islandStyle"        // 灵动岛长短：0 长条（同系统充电那条，左字右值，默认）/ 1 短条（2/3 屏宽，左图标 + 值、右短补充）
