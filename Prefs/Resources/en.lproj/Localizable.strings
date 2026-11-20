@@ -12,6 +12,8 @@
 • Turn on Low Power Mode</string>
 	<key>%.0f 次</key>
 	<string>%.0f</string>
+	<key>%@ 开始充，%@ 前充满</key>
+	<string>Charging from %@, full by %@</string>
 	<key>%ld 分</key>
 	<string>%ld min</string>
 	<key>%ld 小时</key>
@@ -82,6 +84,8 @@ Banner: a card slides down from the top; swipe up or tap to close.</string>
 	<string>at 100%</string>
 	<key>充满</key>
 	<string>Full</string>
+	<key>充满时间</key>
+	<string>Full By</string>
 	<key>充电</key>
 	<string>Charging</string>
 	<key>充电上限</key>
@@ -136,8 +140,12 @@ Banner: a card slides down from the top; swipe up or tap to close.</string>
 	<string>Copy URL</string>
 	<key>复制问题信息</key>
 	<string>Copy Debug Info</string>
+	<key>夜里停在上限</key>
+	<string>hold at the limit overnight</string>
 	<key>好</key>
 	<string>OK</string>
+	<key>定时充满</key>
+	<string>Scheduled Full Charge</string>
 	<key>实时</key>
 	<string>Live</string>
 	<key>实际容量</key>

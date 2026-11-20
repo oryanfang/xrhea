@@ -3,6 +3,7 @@
 //
 //   充电  1 插电：插上后等电流稳了（最多 25 秒）、等插电弹窗关掉；显示充电头送进来的功率（同 USB 数显线），横幅带预计时间
 //           预计时间优先用「记住的充电速度」：每次充完按充电头记下 80% 前 / 后实际每分钟充几 %（XRH_RATES_FILE）
+//           定时充满在等着时（xrhead 状态文件 schedFull > 0、还没开始充）改弹「定时充满 ｜ 7:00」
 //        13 到点（默认关）：充到自己设的电量（alertTargetLevel，默认 90%）提醒，不停充
 //         2 停充：充电上限停充了（xrhead 状态文件 inhibited 从 0 变 1），显示停下时的实际电量（可能比上限少 1%）
 //         7 充满：没开上限、充到 100%（插上时已满不算）
@@ -329,6 +330,22 @@ static BOOL XRHLooksStopped(double level, int *reason) {
     return r != 0;
 }
 
+// 定时充满在等着（xrhead 算好了开始 / 充满时间、还没开始充）：插电提醒改成「定时充满 ｜ 7:00」
+static NSString *XRHClock(double unix) {
+    NSDateFormatter *f = [NSDateFormatter new];
+    f.dateFormat = @"H:mm";
+    return [f stringFromDate:[NSDate dateWithTimeIntervalSince1970:unix]];
+}
+
+static void XRHShowScheduled(double start, double full, int max) {
+    NSString *fullAt = XRHClock(full), *startAt = XRHClock(start);
+    XRHShowToastFull(XRHToastInfo, @"alarm",
+                     [NSString stringWithFormat:XRHText(@"定时充满 %@", @"Full by %@"), fullAt],
+                     [NSString stringWithFormat:XRHText(@"先停在 %d%%，约 %@ 开始充", @"Holding at %d%%, charging from about %@"), max, startAt],
+                     fullAt, XRHText(@"定时充满", @"Scheduled"),
+                     XRHText(@"定时充满", @"Full by"), fullAt);
+}
+
 #pragma mark - 记住实际充电速度
 
 // 插上时只看几十秒的电流算预计，会偏悲观：电流之后还会往上走（真机：插上 25 秒 1.9A，实际 45 分钟从 23% 充到 81%，
@@ -437,6 +454,13 @@ static void XRHPlugInWhenReady(NSMutableArray<NSNumber *> *amps, int tries) {
         nowW = (!isnan(avg) && !isnan(volts)) ? fabs(volts * avg) / 1e6 : NAN;
     }
     XRHDebugLog(@"[Alert] 插电 实际 %.1fW", nowW);
+    NSDictionary *state = XRHLimitState();
+    double schedStart = [state[@"schedStart"] doubleValue], schedFull = [state[@"schedFull"] doubleValue];
+    if (XRHLimitActive() && schedFull > 0 && ![state[@"schedActive"] boolValue]) {
+        XRHDebugLog(@"[Alert] 插电 定时充满 %@ 开始、%@ 充满", XRHClock(schedStart), XRHClock(schedFull));
+        XRHShowScheduled(schedStart, schedFull, XRHLimitMax());
+        return;
+    }
     XRHShowPlugIn(XRBatteryAdapterWatts(), XRBatteryAdapterIsWireless(), level, minutes, target, nowW);
 }
 

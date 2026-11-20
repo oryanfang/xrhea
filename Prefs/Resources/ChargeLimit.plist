@@ -129,6 +129,54 @@
 			<key>footerText</key>
 			<string>停充要等 30 秒左右才生效，为了不超过上限，充得快时会提前一点停，可能停在上限少 1%。请关掉系统「设置 › 电池 › 充电」里的优化充电，它和 xrhea 用的是同一个开关，会互相打架。关掉这里或卸载 xrhea 会马上恢复充电；重启手机也会恢复默认。</string>
 		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSGroupCell</string>
+			<key>label</key>
+			<string>定时充满</string>
+			<key>xrhRequires</key>
+			<string>chargeLimit</string>
+		</dict>
+		<dict>
+			<key>PostNotification</key>
+			<string>com.xyrith.xrhea/prefschanged</string>
+			<key>cell</key>
+			<string>PSSwitchCell</string>
+			<key>default</key>
+			<false/>
+			<key>defaults</key>
+			<string>com.xyrith.xrhea</string>
+			<key>height</key>
+			<integer>52</integer>
+			<key>key</key>
+			<string>chargeSchedule</string>
+			<key>label</key>
+			<string>定时充满</string>
+			<key>xrhNote</key>
+			<string>夜里停在上限</string>
+			<key>xrhRequires</key>
+			<string>chargeLimit</string>
+		</dict>
+		<dict>
+			<key>PostNotification</key>
+			<string>com.xyrith.xrhea/prefschanged</string>
+			<key>cell</key>
+			<string>PSStaticTextCell</string>
+			<key>cellClass</key>
+			<string>XRHTimeCell</string>
+			<key>default</key>
+			<integer>420</integer>
+			<key>defaults</key>
+			<string>com.xyrith.xrhea</string>
+			<key>height</key>
+			<integer>52</integer>
+			<key>key</key>
+			<string>chargeScheduleTime</string>
+			<key>label</key>
+			<string>充满时间</string>
+			<key>xrhRequires</key>
+			<string>chargeLimit,chargeSchedule</string>
+		</dict>
 	</array>
 	<key>title</key>
 	<string>充电上限</string>

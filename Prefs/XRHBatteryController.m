@@ -396,6 +396,17 @@ static NSString *XRHDuration(double minutes) {
 // 充电：分两段算（见上）；放电：剩余电量 ÷ 平均电流。都用「电量 % × 实际容量」当剩余电量，
 // 不用 AppleRawCurrentCapacity（它对应的是 AppleRawMaxCapacity，和实际容量不是一套，混着用会算偏）。电流太小（<50mA）时不估
 - (id)xrhEstimate:(PSSpecifier *)s {
+    // 定时充满在等着（xrhead 算好了时间、还没开始充）：「5:40 开始充，7:00 前充满」
+    if (XRBatteryExternalConnected() && XRHLimitOn()) {
+        NSDictionary *state = [NSDictionary dictionaryWithContentsOfFile:@"/var/mobile/Library/Caches/com.xyrith.xrhea.limit.plist"];
+        double start = [state[@"schedStart"] doubleValue], full = [state[@"schedFull"] doubleValue];
+        if (full > 0 && ![state[@"schedActive"] boolValue]) {
+            NSDateFormatter *f = [NSDateFormatter new];
+            f.dateFormat = @"H:mm";
+            return [NSString stringWithFormat:XRHL(@"%@ 开始充，%@ 前充满"),
+                    [f stringFromDate:[NSDate dateWithTimeIntervalSince1970:start]], [f stringFromDate:[NSDate dateWithTimeIntervalSince1970:full]]];
+        }
+    }
     if (XRBatteryExternalConnected() && XRHLimitHolding()) return XRHL(@"已到上限");
     if (XRBatteryFullyCharged()) return XRHL(@"已充满");
     double avg = 0;

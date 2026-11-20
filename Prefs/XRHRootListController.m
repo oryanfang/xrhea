@@ -380,13 +380,7 @@ static BOOL XRHVersionNewer(NSString *a, NSString *b) {
         _xrhAllSpecifiers = plistName ? [self loadSpecifiersFromPlistName:plistName target:self] : @[];
         XRHLocalizeSpecifiers(_xrhAllSpecifiers);
         if (self.title.length) self.title = XRHL(self.title);
-        NSMutableArray *visible = [NSMutableArray array];
-        for (PSSpecifier *spec in _xrhAllSpecifiers) {
-            NSString *requires = [spec propertyForKey:@"xrhRequires"];
-            if (requires && ![self xrh_boolForKey:requires]) continue;
-            [visible addObject:spec];
-        }
-        _specifiers = visible;
+        _specifiers = [self xrh_visibleSpecifiers];
     }
     return _specifiers;
 }
@@ -422,6 +416,22 @@ static BOOL XRHVersionNewer(NSString *a, NSString *b) {
     [super tableView:tableView didSelectRowAtIndexPath:indexPath];
 }
 
+// xrhRequires 可以写多个键（逗号隔开），全部开着才显示，比如「充满时间」要「充电上限」和「定时充满」都开
+- (BOOL)xrh_requiresMet:(PSSpecifier *)spec {
+    NSString *requires = [spec propertyForKey:@"xrhRequires"];
+    if (!requires.length) return YES;
+    for (NSString *key in [requires componentsSeparatedByString:@","]) {
+        if (![self xrh_boolForKey:key]) return NO;
+    }
+    return YES;
+}
+
+- (NSMutableArray *)xrh_visibleSpecifiers {
+    NSMutableArray *visible = [NSMutableArray array];
+    for (PSSpecifier *spec in _xrhAllSpecifiers) if ([self xrh_requiresMet:spec]) [visible addObject:spec];
+    return visible;
+}
+
 - (BOOL)xrh_boolForKey:(NSString *)key {
     for (PSSpecifier *spec in _xrhAllSpecifiers) {
         if ([[spec propertyForKey:@"key"] isEqualToString:key]) return [[self readPreferenceValue:spec] boolValue];
@@ -450,25 +460,26 @@ static BOOL XRHVersionNewer(NSString *a, NSString *b) {
         }
         return;
     }
-    NSMutableArray *dependents = [NSMutableArray array];
+    // 依赖这个开关的项要出现 / 消失：变动的几项正好连成一块、紧跟在开关后面时用动画插入 / 移除；
+    // 否则（比如「定时充满」那组隔着几段说明）整页重排，保证位置对
+    BOOL depends = NO;
     for (PSSpecifier *spec in _xrhAllSpecifiers) {
-        if ([[spec propertyForKey:@"xrhRequires"] isEqualToString:key]) [dependents addObject:spec];
+        if ([[[spec propertyForKey:@"xrhRequires"] componentsSeparatedByString:@","] containsObject:key]) { depends = YES; break; }
     }
-    if (!dependents.count) return;
-
-    if ([value boolValue]) {
-        NSMutableArray *missing = [NSMutableArray array];
-        for (PSSpecifier *spec in dependents) {
-            if (![_specifiers containsObject:spec]) [missing addObject:spec];
-        }
-        if (missing.count) [self insertContiguousSpecifiers:missing afterSpecifier:specifier animated:YES];
-    } else {
-        NSMutableArray *present = [NSMutableArray array];
-        for (PSSpecifier *spec in dependents) {
-            if ([_specifiers containsObject:spec]) [present addObject:spec];
-        }
-        if (present.count) [self removeContiguousSpecifiers:present animated:YES];
-    }
+    if (!depends) return;
+    NSArray *want = [self xrh_visibleSpecifiers];
+    if ([want isEqualToArray:_specifiers]) return;
+    BOOL adding = want.count > _specifiers.count;
+    NSArray *longer = adding ? want : _specifiers, *shorter = adding ? _specifiers : want;
+    NSMutableArray *diff = [NSMutableArray array];
+    for (PSSpecifier *spec in longer) if (![shorter containsObject:spec]) [diff addObject:spec];
+    NSUInteger anchor = [longer indexOfObject:specifier], first = [longer indexOfObject:diff.firstObject];
+    BOOL contiguous = anchor != NSNotFound && first == anchor + 1 && first + diff.count <= longer.count
+                      && [[longer subarrayWithRange:NSMakeRange(first, diff.count)] isEqualToArray:diff]
+                      && [[NSMutableArray arrayWithArray:longer] count] - diff.count == shorter.count;
+    if (contiguous && adding) [self insertContiguousSpecifiers:diff afterSpecifier:specifier animated:YES];
+    else if (contiguous) [self removeContiguousSpecifiers:diff animated:YES];
+    else [self reloadSpecifiers];
 }
 
 @end

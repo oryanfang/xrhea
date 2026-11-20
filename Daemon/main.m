@@ -16,8 +16,12 @@
 //   - 收到退出信号（卸载、关服务）→ 先恢复充电再退出；`xrhead reset` 只恢复充电（prerm 用）
 //   - 「这次充满」（chargeLimitFullOnce，插电弹窗里点的，SpringBoard 写）：这次接着电源期间不管上限；拔线就作废
 //   - 记下上次充满的时间（lastFull），插件用来做「每月充满一次」提醒；第一次运行时当作刚充满，免得一装上就催
+//   - 定时充满（chargeSchedule + chargeScheduleTime，几点几分换成一天里的第几分钟）：离充满时间不到 12 小时插着线时，
+//     先按上限停着；到「充满时间 − 从上限充到 100% 要多久 − 15 分钟」开始充，之后这次插着线期间都不管上限（到点还没满也不会又停回上限），
+//     拔线作废。要多久按插件记下的这个充电头的实际速度（rates.plist 的 tail，没有就用 fast × 0.35，再没有按每分钟 0.4%）
 //
-// 状态写给设置页 / 插件看：/var/mobile/Library/Caches/com.xyrith.xrhea.limit.plist（{inhibited, max, resumeAt, time, lastFull}）
+// 状态写给设置页 / 插件看：/var/mobile/Library/Caches/com.xyrith.xrhea.limit.plist
+//   {inhibited, max, resumeAt, time, lastFull, schedStart, schedFull, schedActive}（定时充满的开始 / 充满时间是 Unix 时间，不在时段里是 0）
 #import <Foundation/Foundation.h>
 #import <dlfcn.h>
 #import <mach/mach.h>
@@ -28,6 +32,7 @@
 #define XRH_NOTIFY       "com.xyrith.xrhea/prefschanged"
 #define XRH_STATE_FILE   @"/var/mobile/Library/Caches/com.xyrith.xrhea.limit.plist"
 #define XRH_LOG_FILE     @"/var/mobile/Library/Caches/com.xyrith.xrhea.daemon.log"
+#define XRH_RATES_FILE   @"/var/mobile/Library/Caches/com.xyrith.xrhea.rates.plist"   // 插件记下的实际充电速度（同 Shared/XRHKeys.h）
 
 typedef mach_port_t xr_io_object_t;
 static xr_io_object_t (*pIOServiceGetMatchingService)(mach_port_t, CFDictionaryRef);
@@ -42,6 +47,9 @@ static const double kXRHEarlyStopAmps = 300;   // 充电电流超过这个（mA�
 static CFAbsoluteTime gLastCommand;
 static double gLastFull;           // 上次充满（Unix 时间）
 static BOOL gWasConnected;
+static BOOL gSchedActive;          // 定时充满：已经到点开始充了（这次插着线期间不管上限）
+static double gSchedStart, gSchedFull;   // 定时充满：算出来的开始充 / 充满时间（Unix 时间；不在时段里是 0）
+static const double kXRHSchedBuffer = 15 * 60;   // 提前多开始充，宁可早满一点
 
 #pragma mark - 日志（只在调试版）
 
@@ -88,7 +96,8 @@ static double XRHBatteryNumber(NSString *key, double fallback) {
 
 static void XRHWriteState(int max, int resumeAt) {
     NSDictionary *state = @{@"inhibited": @(gInhibited), @"max": @(max), @"resumeAt": @(resumeAt),
-                            @"time": @([NSDate date].timeIntervalSince1970), @"lastFull": @(gLastFull)};
+                            @"time": @([NSDate date].timeIntervalSince1970), @"lastFull": @(gLastFull),
+                            @"schedStart": @(gSchedStart), @"schedFull": @(gSchedFull), @"schedActive": @(gSchedActive)};
     [state writeToFile:XRH_STATE_FILE atomically:YES];
     [[NSFileManager defaultManager] setAttributes:@{NSFilePosixPermissions: @0644} ofItemAtPath:XRH_STATE_FILE error:nil];
 }
@@ -118,6 +127,55 @@ static int XRHPrefInt(NSString *key, int fallback, int lo, int hi) {
     id v = XRHPref(key);
     int i = [v respondsToSelector:@selector(intValue)] ? [v intValue] : fallback;
     return MAX(lo, MIN(hi, i));
+}
+
+#pragma mark - 定时充满
+
+// 从 from% 充到 100% 要几分钟：按插件记下的这个充电头 80% 后的速度
+static double XRHMinutesToFull(double from) {
+    NSDictionary *details = (__bridge_transfer id)pIORegistryEntryCreateCFProperty(gBattery, CFSTR("AdapterDetails"), kCFAllocatorDefault, 0);
+    double tail = 0;
+    if ([details isKindOfClass:[NSDictionary class]]) {
+        double w = [details[@"Watts"] doubleValue];
+        NSString *key = [NSString stringWithFormat:[details[@"IsWireless"] boolValue] ? @"无线%.0fW" : @"%.0fW", w];
+        NSDictionary *r = [NSDictionary dictionaryWithContentsOfFile:XRH_RATES_FILE][key];
+        if ([r isKindOfClass:[NSDictionary class]]) tail = [r[@"tail"] doubleValue] ?: [r[@"fast"] doubleValue] * 0.35;
+    }
+    if (tail <= 0) tail = 0.4;
+    return MAX(0, 100 - from) / tail;
+}
+
+// 下一个「几点几分」（今天还没到就是今天，过了就是明天）
+static NSDate *XRHNextTime(int minuteOfDay) {
+    NSCalendar *cal = NSCalendar.currentCalendar;
+    NSDate *now = [NSDate date];
+    NSDate *t = [cal dateBySettingHour:minuteOfDay / 60 minute:minuteOfDay % 60 second:0 ofDate:now options:0];
+    return [t compare:now] == NSOrderedDescending ? t : [cal dateByAddingUnit:NSCalendarUnitDay value:1 toDate:t options:0];
+}
+
+// 定时充满：算开始 / 充满时间，到点了就标记成「这次不管上限」。返回 YES = 现在该放开充
+static BOOL XRHScheduleTick(BOOL connected, double level, int max, int resumeAt) {
+    double start = 0, full = 0;
+    if (!connected) gSchedActive = NO;
+    if (connected && XRHPrefBool(@"chargeSchedule", NO) && !gSchedActive) {
+        NSDate *next = XRHNextTime(XRHPrefInt(@"chargeScheduleTime", 7 * 60, 0, 24 * 60 - 1));
+        double now = [NSDate date].timeIntervalSince1970, fullAt = next.timeIntervalSince1970;
+        if (fullAt - now <= 12 * 3600) {
+            full = fullAt;
+            start = fullAt - XRHMinutesToFull(MAX(level, max)) * 60 - kXRHSchedBuffer;
+            if (now >= start) {
+                gSchedActive = YES;
+                XRHLog(@"定时充满：到点开始充（%.0f%%，%@ 前充满）", level, next);
+            }
+        }
+    }
+    if (gSchedActive) { start = gSchedStart; full = gSchedFull; }
+    if (fabs(start - gSchedStart) > 30 || fabs(full - gSchedFull) > 30) {   // 变了才写状态（开始时间会随电量微调）
+        gSchedStart = start;
+        gSchedFull = full;
+        XRHWriteState(max, resumeAt);
+    }
+    return gSchedActive;
 }
 
 #pragma mark - 判断
@@ -152,13 +210,19 @@ static void XRHTick(NSString *reason) {
 
     if (!enabled) {
         if (gInhibited) XRHSetInhibit(NO, max, resumeAt, @"功能关了");
+        XRHScheduleTick(NO, level, max, resumeAt);
         return;
     }
-    if (!connected) return;   // 没接电源时不用管，插上再说
+    if (!connected) { XRHScheduleTick(NO, level, max, resumeAt); return; }   // 没接电源时不用管，插上再说
 
     // 这次充满：不管上限
     if (XRHPrefBool(@"chargeLimitFullOnce", NO)) {
         if (gInhibited) XRHSetInhibit(NO, max, resumeAt, @"这次充满");
+        return;
+    }
+    // 定时充满：到点了就放开充（没到点照常按上限停着）
+    if (XRHScheduleTick(connected, level, max, resumeAt)) {
+        if (gInhibited) XRHSetInhibit(NO, max, resumeAt, @"定时充满开始");
         return;
     }
 

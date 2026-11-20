@@ -96,6 +96,11 @@ PAGES["ChargeLimit"] = ("充电上限", [
     group(None, "停充要等 30 秒左右才生效，为了不超过上限，充得快时会提前一点停，可能停在上限少 1%。"
                 "请关掉系统「设置 › 电池 › 充电」里的优化充电，它和 xrhea 用的是同一个开关，会互相打架。"
                 "关掉这里或卸载 xrhea 会马上恢复充电；重启手机也会恢复默认。"),
+    # 定时充满（Daemon/main.m 的 XRHScheduleTick）：夜里先停在上限，按记住的充电速度算好时间，充满时间前刚好充满
+    dict(group("定时充满"), xrhRequires="chargeLimit"),
+    dict(switch("定时充满", "chargeSchedule", False, requires="chargeLimit"), xrhNote="夜里停在上限", height=52),
+    _pref({"cell": "PSStaticTextCell", "cellClass": "XRHTimeCell", "label": "充满时间", "height": 52},
+          "chargeScheduleTime", 7 * 60, False, "chargeLimit,chargeSchedule"),
 ])
 
 def alert(label, note, key, default, n):
@@ -205,6 +210,7 @@ EN = {
     "灵动岛": "Dynamic Island", "长条": "Long", "短条": "Short", "正在充电": "Charging", "约40分钟": "~40 min", "点按跳转": "Tap to Open", "打开电池信息": "battery details",
     "中断": "Stopped", "插着却不充": "plugged, not charging",
     "不要为了热闹而点亮每一个开关。": "No need to light up every switch.",
+    "%@ 开始充，%@ 前充满": "Charging from %@, full by %@", "定时充满": "Scheduled Full Charge", "夜里停在上限": "hold at the limit overnight", "充满时间": "Full By",
     "到点": "Target", "充到 %d%%": "at %d%%", "电量": "Level", "异常": "Issues", "用电": "Usage",
     "接触": "Loose", "1 分钟断开 ≥ 3 次": "≥ 3 drops / min", "低温": "Cold", "充电 < 5 ℃": "charging < 5 °C",
     "睡前": "Bedtime", "22 点后 < 30%": "< 30% after 10 PM",
@@ -277,7 +283,7 @@ EN = {
     "已重置": "Reset Done", "有些设置要注销后才会完全恢复，现在注销吗？": "Some settings only fully reset after a respring. Respring now?",
     "稍后": "Later",
 }
-CODE_STRINGS = ["长条", "短条", "正在充电", "约40分钟", "试试看", "需注销", "注销", "确定要注销（重启 SpringBoard）吗？", "取消", "有新版 %@", "在 Sileo 中添加", "复制地址",
+CODE_STRINGS = ["%@ 开始充，%@ 前充满", "长条", "短条", "正在充电", "约40分钟", "试试看", "需注销", "注销", "确定要注销（重启 SpringBoard）吗？", "取消", "有新版 %@", "在 Sileo 中添加", "复制地址",
                 "已复制", "好", "重置", "xrhea 的所有设置都会恢复默认。确定吗？", "已重置",
                 "有些设置要注销后才会完全恢复，现在注销吗？", "稍后", "重置所有设置", "软件源",
                 # XRHBatteryController.m
