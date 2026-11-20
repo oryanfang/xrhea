@@ -2,6 +2,7 @@
 // 每个功能一个文件，对外暴露 XRHInitXxx()（声明在 XRHCommon.h），
 // 功能内部用 XRHAddRefresher(关心的偏好键, block) 登记"改设置后要刷新什么"，只有那几个键变了才跑。
 #import "XRHCommon.h"
+#import <notify.h>
 
 static BOOL gModulesLoaded = NO;
 
@@ -27,11 +28,14 @@ static void XRHPrefsChanged(CFNotificationCenterRef center, void *observer,
         XRHDebugLog(@"xrhea loaded into %@ (pid %d) at %@, enabled=%d",
                     NSProcessInfo.processInfo.processName, getpid(), [NSDate date], prefs.enabled);
 
+        // 保持高刷新率的开关传给 backboardd（总开关关着时传 0）
+        XRHSyncHighRefresh();
         // 总开关关闭时不安装任何 hook（切换总开关需要注销生效）
         if (!prefs.enabled) return;
 
         XRHInitChargePrompt();
         XRHInitAlerts();
+        XRHInitLowPower();
         gModulesLoaded = YES;
 
 #if XRH_DEBUG

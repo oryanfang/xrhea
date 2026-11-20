@@ -29,10 +29,32 @@
 			<string>充电上限</string>
 			<key>plistName</key>
 			<string>ChargeLimit</string>
-			<key>xrhSymbol</key>
-			<string>bolt.shield.fill</string>
-			<key>xrhSymbolColor</key>
-			<string>teal</string>
+			<key>xrhDrawn</key>
+			<string>boltHalf</string>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSLinkCell</string>
+			<key>detail</key>
+			<string>XRHSubListController</string>
+			<key>label</key>
+			<string>优化</string>
+			<key>plistName</key>
+			<string>Optimize</string>
+			<key>xrhDrawn</key>
+			<string>leaf</string>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSLinkCell</string>
+			<key>detail</key>
+			<string>XRHSubListController</string>
+			<key>label</key>
+			<string>低电量模式</string>
+			<key>plistName</key>
+			<string>LowPower</string>
+			<key>xrhDrawn</key>
+			<string>lowPower</string>
 		</dict>
 		<dict>
 			<key>cell</key>

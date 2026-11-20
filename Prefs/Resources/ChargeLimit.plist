@@ -8,7 +8,7 @@
 			<key>cell</key>
 			<string>PSGroupCell</string>
 			<key>footerText</key>
-			<string>到上限就停止充电，插着线时电源直接给手机供电，电池不充也不放。掉到恢复线以下才重新充，不会在上限附近反复启停。</string>
+			<string>达到上限后停止充电，由电源直接供电；低于恢复线时恢复充电。</string>
 		</dict>
 		<dict>
 			<key>PostNotification</key>
@@ -102,6 +102,14 @@
 			<string>chargeLimit</string>
 		</dict>
 		<dict>
+			<key>cell</key>
+			<string>PSGroupCell</string>
+			<key>footerText</key>
+			<string>插电时可选择本次充满，拔线后恢复上限。30 天未充满时提示充满一次，用于校准电量。</string>
+			<key>xrhRequires</key>
+			<string>chargeLimit</string>
+		</dict>
+		<dict>
 			<key>PostNotification</key>
 			<string>com.xyrith.xrhea/prefschanged</string>
 			<key>cell</key>
@@ -121,19 +129,7 @@
 			<key>cell</key>
 			<string>PSGroupCell</string>
 			<key>footerText</key>
-			<string>插上电源时弹窗问「确认」还是「这次充满」，外出前想充满就点「这次充满」，拔线后自动恢复上限。超过 30 天没充满过时，这个弹窗会提醒你充满一次（关掉询问也会提醒），让电量统计保持准确。</string>
-		</dict>
-		<dict>
-			<key>cell</key>
-			<string>PSGroupCell</string>
-			<key>footerText</key>
-			<string>停充要等 30 秒左右才生效，为了不超过上限，充得快时会提前一点停，可能停在上限少 1%。请关掉系统「设置 › 电池 › 充电」里的优化充电，它和 xrhea 用的是同一个开关，会互相打架。关掉这里或卸载 xrhea 会马上恢复充电；重启手机也会恢复默认。</string>
-		</dict>
-		<dict>
-			<key>cell</key>
-			<string>PSGroupCell</string>
-			<key>label</key>
-			<string>定时充满</string>
+			<string>开始时间按充电器实测速度计算。</string>
 			<key>xrhRequires</key>
 			<string>chargeLimit</string>
 		</dict>
@@ -153,7 +149,7 @@
 			<key>label</key>
 			<string>定时充满</string>
 			<key>xrhNote</key>
-			<string>夜里停在上限</string>
+			<string>设定时间前充满</string>
 			<key>xrhRequires</key>
 			<string>chargeLimit</string>
 		</dict>
@@ -176,6 +172,12 @@
 			<string>充满时间</string>
 			<key>xrhRequires</key>
 			<string>chargeLimit,chargeSchedule</string>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSGroupCell</string>
+			<key>footerText</key>
+			<string>停充约 30 秒后生效，快充时提前 1% 停止。需关闭系统「优化电池充电」。关闭本功能、卸载或重启后恢复充电。</string>
 		</dict>
 	</array>
 	<key>title</key>

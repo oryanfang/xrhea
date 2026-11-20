@@ -120,6 +120,82 @@ static void XRHDecorateCell(UITableViewCell *cell, PSSpecifier *spec) {
     }
 }
 
+#pragma mark - 自绘图标
+
+// 「充电上限」入口：橙底白色半亮闪电（同系统设置的彩色方块；下半截实心 = 已充，上半截只有轮廓 = 上限以上不充）
+static UIImage *XRHBoltHalfIcon(void) {
+    static UIImage *icon;
+    if (icon) return icon;
+    CGSize size = CGSizeMake(29, 29);
+    icon = [[[UIGraphicsImageRenderer alloc] initWithSize:size] imageWithActions:^(UIGraphicsImageRendererContext *ctx) {
+        [UIColor.systemOrangeColor setFill];
+        [[UIBezierPath bezierPathWithRoundedRect:(CGRect){CGPointZero, size} cornerRadius:6.5] fill];
+        UIBezierPath *bolt = [UIBezierPath bezierPath];
+        [bolt moveToPoint:CGPointMake(16.2, 5.5)];
+        [bolt addLineToPoint:CGPointMake(9, 16)];
+        [bolt addLineToPoint:CGPointMake(14, 16)];
+        [bolt addLineToPoint:CGPointMake(12.6, 23.5)];
+        [bolt addLineToPoint:CGPointMake(20, 13)];
+        [bolt addLineToPoint:CGPointMake(15, 13)];
+        [bolt closePath];
+        bolt.lineJoinStyle = kCGLineJoinRound;
+        bolt.lineWidth = 1.3;
+        [UIColor.whiteColor setStroke];
+        [bolt stroke];
+        CGContextSaveGState(ctx.CGContext);
+        CGContextClipToRect(ctx.CGContext, CGRectMake(0, 13.2, 29, 16));
+        [UIColor.whiteColor setFill];
+        [bolt fill];
+        CGContextRestoreGState(ctx.CGContext);
+    }];
+    return icon;
+}
+
+// 「优化」入口：紫底白色叶子（细线轮廓 + 叶脉）
+static UIImage *XRHLeafIcon(void) {
+    static UIImage *icon;
+    if (icon) return icon;
+    CGSize size = CGSizeMake(29, 29);
+    icon = [[[UIGraphicsImageRenderer alloc] initWithSize:size] imageWithActions:^(UIGraphicsImageRendererContext *ctx) {
+        [UIColor.systemIndigoColor setFill];
+        [[UIBezierPath bezierPathWithRoundedRect:(CGRect){CGPointZero, size} cornerRadius:6.5] fill];
+        UIBezierPath *leaf = [UIBezierPath bezierPath];
+        [leaf moveToPoint:CGPointMake(8, 21)];
+        [leaf addCurveToPoint:CGPointMake(21.5, 7.5) controlPoint1:CGPointMake(8, 12) controlPoint2:CGPointMake(13, 8)];
+        [leaf addCurveToPoint:CGPointMake(8, 21) controlPoint1:CGPointMake(21, 16) controlPoint2:CGPointMake(17, 21)];
+        [leaf closePath];
+        leaf.lineWidth = 1.4;
+        leaf.lineJoinStyle = kCGLineJoinRound;
+        [UIColor.whiteColor setStroke];
+        [leaf stroke];
+        UIBezierPath *vein = [UIBezierPath bezierPath];
+        [vein moveToPoint:CGPointMake(8, 21)];
+        [vein addLineToPoint:CGPointMake(16, 13)];
+        vein.lineWidth = 1.3;
+        vein.lineCapStyle = kCGLineCapRound;
+        [vein stroke];
+    }];
+    return icon;
+}
+
+// 「低电量模式」入口：黄底白色电池（细线外框 + 少量电量，同系统低电量的黄色）
+static UIImage *XRHLowPowerIcon(void) {
+    static UIImage *icon;
+    if (icon) return icon;
+    CGSize size = CGSizeMake(29, 29);
+    icon = [[[UIGraphicsImageRenderer alloc] initWithSize:size] imageWithActions:^(UIGraphicsImageRendererContext *ctx) {
+        [UIColor.systemYellowColor setFill];
+        [[UIBezierPath bezierPathWithRoundedRect:(CGRect){CGPointZero, size} cornerRadius:6.5] fill];
+        [UIColor.whiteColor set];
+        UIBezierPath *body = [UIBezierPath bezierPathWithRoundedRect:CGRectMake(5.5, 10, 16, 9) cornerRadius:2.3];
+        body.lineWidth = 1.4;
+        [body stroke];
+        [[UIBezierPath bezierPathWithRoundedRect:CGRectMake(22.2, 12.8, 1.6, 3.4) cornerRadius:0.8] fill];
+        [[UIBezierPath bezierPathWithRoundedRect:CGRectMake(7.5, 12, 5, 5) cornerRadius:1] fill];
+    }];
+    return icon;
+}
+
 #pragma mark - 彩色方块图标（同系统设置的样子，29pt）
 
 static UIImage *XRHSymbolIcon(NSString *symbol, NSString *colorName) {
@@ -185,6 +261,9 @@ static void XRHConfirmRespring(UIViewController *vc, NSString *title, NSString *
     // plist 里写了 xrhSymbol 的行：用 SF Symbols 画一个系统设置风格的彩色方块图标
     NSString *symbol = [spec propertyForKey:@"xrhSymbol"];
     if (symbol) cell.imageView.image = XRHSymbolIcon(symbol, [spec propertyForKey:@"xrhSymbolColor"]);
+    if ([[spec propertyForKey:@"xrhDrawn"] isEqual:@"boltHalf"]) cell.imageView.image = XRHBoltHalfIcon();
+    if ([[spec propertyForKey:@"xrhDrawn"] isEqual:@"leaf"]) cell.imageView.image = XRHLeafIcon();
+    if ([[spec propertyForKey:@"xrhDrawn"] isEqual:@"lowPower"]) cell.imageView.image = XRHLowPowerIcon();
     if ([[spec propertyForKey:@"xrhBatteryRow"] boolValue]) {
         cell.imageView.image = XRHBatteryRowIcon();
         UILabel *detail = cell.detailTextLabel;

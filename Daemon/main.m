@@ -50,6 +50,12 @@ static BOOL gWasConnected;
 static BOOL gSchedActive;          // 定时充满：已经到点开始充了（这次插着线期间不管上限）
 static double gSchedStart, gSchedFull;   // 定时充满：算出来的开始充 / 充满时间（Unix 时间；不在时段里是 0）
 static const double kXRHSchedBuffer = 15 * 60;   // 提前多开始充，宁可早满一点
+// 高温保护（thermalGuard）：充电时电池 ≥ thermalTemp 就进入保护，降到 thermalTemp − 3 ℃ 以下解除。
+// thermalMode 0 = 停充；1 = 间歇充电（默认；停 3 分钟、充 3 分钟交替，先停）。优先于充电上限 / 这次充满 / 定时充满
+static BOOL gThermalHot;           // 在保护中（拔线清掉）
+static BOOL gThermalInhibit;       // 当前这次停充是高温保护发的（解除时要恢复）
+static double gThermalSince;       // 进入保护的时间（间歇充电按它算周期）
+static const double kXRHThermalGap = 3, kXRHPulseSeconds = 180;
 
 #pragma mark - 日志（只在调试版）
 
@@ -97,7 +103,8 @@ static double XRHBatteryNumber(NSString *key, double fallback) {
 static void XRHWriteState(int max, int resumeAt) {
     NSDictionary *state = @{@"inhibited": @(gInhibited), @"max": @(max), @"resumeAt": @(resumeAt),
                             @"time": @([NSDate date].timeIntervalSince1970), @"lastFull": @(gLastFull),
-                            @"schedStart": @(gSchedStart), @"schedFull": @(gSchedFull), @"schedActive": @(gSchedActive)};
+                            @"schedStart": @(gSchedStart), @"schedFull": @(gSchedFull), @"schedActive": @(gSchedActive),
+                            @"thermalHot": @(gThermalHot), @"thermalStop": @(gThermalInhibit)};
     [state writeToFile:XRH_STATE_FILE atomically:YES];
     [[NSFileManager defaultManager] setAttributes:@{NSFilePosixPermissions: @0644} ofItemAtPath:XRH_STATE_FILE error:nil];
 }
@@ -165,6 +172,9 @@ static BOOL XRHScheduleTick(BOOL connected, double level, int max, int resumeAt)
             start = fullAt - XRHMinutesToFull(MAX(level, max)) * 60 - kXRHSchedBuffer;
             if (now >= start) {
                 gSchedActive = YES;
+                gSchedStart = start;   // 到点这一刻按新算的写一次（插件靠 schedActive 判断已经开始充）
+                gSchedFull = full;
+                XRHWriteState(max, resumeAt);
                 XRHLog(@"定时充满：到点开始充（%.0f%%，%@ 前充满）", level, next);
             }
         }
@@ -176,6 +186,30 @@ static BOOL XRHScheduleTick(BOOL connected, double level, int max, int resumeAt)
         XRHWriteState(max, resumeAt);
     }
     return gSchedActive;
+}
+
+#pragma mark - 高温保护
+
+// 返回 YES = 现在因为高温该停着
+static BOOL XRHThermalTick(BOOL connected, double temp, int max, int resumeAt) {
+    BOOL wasHot = gThermalHot;
+    if (!connected || !XRHPrefBool(@"enabled", YES) || !XRHPrefBool(@"thermalGuard", NO) || isnan(temp)) gThermalHot = NO;
+    else {
+        int limit = XRHPrefInt(@"thermalTemp", 40, 30, 50);
+        if (!gThermalHot && temp >= limit) {
+            gThermalHot = YES;
+            gThermalSince = [NSDate date].timeIntervalSince1970;
+            XRHLog(@"高温保护：%.1f℃ ≥ %d℃，%@", temp, limit, XRHPrefInt(@"thermalMode", 1, 0, 1) ? @"间歇充电" : @"停充");
+        } else if (gThermalHot && temp <= limit - kXRHThermalGap) {
+            gThermalHot = NO;
+            XRHLog(@"高温保护解除：%.1f℃", temp);
+        }
+    }
+    if (wasHot != gThermalHot) XRHWriteState(max, resumeAt);
+    if (!gThermalHot) return NO;
+    if (XRHPrefInt(@"thermalMode", 1, 0, 1) == 0) return YES;
+    long phase = (long)(([NSDate date].timeIntervalSince1970 - gThermalSince) / kXRHPulseSeconds);
+    return phase % 2 == 0;   // 偶数段停、奇数段充
 }
 
 #pragma mark - 判断
@@ -194,6 +228,19 @@ static void XRHTick(NSString *reason) {
     BOOL unplugged = !connected && gWasConnected;
     gWasConnected = connected;
     if (isnan(level)) return;
+
+    // 高温保护：该停就停（不管上限开没开）；解除或间歇到「充」的那段时，先恢复，再走下面的上限判断
+    double temp = XRHBatteryNumber(@"Temperature", NAN) / 100.0;
+    if (XRHThermalTick(connected, temp, max, resumeAt)) {
+        CFAbsoluteTime since = CFAbsoluteTimeGetCurrent() - gLastCommand;
+        if (!gInhibited) { gThermalInhibit = YES; XRHSetInhibit(YES, max, resumeAt, [NSString stringWithFormat:@"高温保护 %.1f℃", temp]); }
+        else if (charging && since > 90) XRHSetInhibit(YES, max, resumeAt, @"高温保护：停着却又在充，再停一次");
+        return;
+    }
+    if (gThermalInhibit) {
+        gThermalInhibit = NO;
+        if (gInhibited) XRHSetInhibit(NO, max, resumeAt, gThermalHot ? @"间歇充电：充" : @"高温保护结束");
+    }
 
     // 充满了：记一下时间（每月充满提醒用）。每 6 小时最多写一次
     if ((level >= 100 || XRHBatteryNumber(@"FullyCharged", 0) > 0) && [NSDate date].timeIntervalSince1970 - gLastFull > 6 * 3600) {

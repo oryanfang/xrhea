@@ -117,9 +117,9 @@ static BOOL XRHScreenBlanked(void) {
     return state != 0;
 }
 
-// 充电上限这次生效吗（开着、没点「这次充满」）
+// 充电上限这次生效吗（开着、没点「这次充满」、定时充满还没到点）
 static BOOL XRHLimitActive(void) {
-    return XRHOn(kXRHChargeLimit) && !XRHOn(kXRHChargeLimitFullOnce);
+    return XRHOn(kXRHChargeLimit) && !XRHOn(kXRHChargeLimitFullOnce) && ![XRHLimitState()[@"schedActive"] boolValue];
 }
 
 static int XRHLimitMax(void) {
@@ -220,6 +220,17 @@ static void XRHShowHot(double temp, BOOL severe) {
                         : XRHText(@"偏热，先歇一会儿，别边充边玩", @"Running warm, take a break"),
                  t, severe ? XRHText(@"过热", @"Hot") : XRHText(@"偏热", @"Warm"),
                  severe ? XRHText(@"电池过热", @"Battery Hot") : XRHText(@"电池偏热", @"Battery Warm"), t);
+}
+
+// 高温保护进入时（xrhead 写 thermalHot）
+static void XRHShowThermalGuard(double temp) {
+    BOOL pulse = [[XRHPrefs shared] doubleForKey:@"thermalMode" fallback:1] >= 1;
+    NSString *t = [NSString stringWithFormat:@"%.0f℃", temp];
+    XRHShowToastFull(XRHToastWarning, @"thermometer.high",
+                 [NSString stringWithFormat:XRHText(@"高温保护 %@", @"Heat Protection %@"), t],
+                 pulse ? XRHText(@"已切换为间歇充电", @"Switched to intermittent charging") : XRHText(@"已暂停充电", @"Charging paused"),
+                 t, pulse ? XRHText(@"间歇充电", @"Pulsing") : XRHText(@"暂停充电", @"Paused"),
+                 XRHText(@"高温保护", @"Heat Protection"), t);
 }
 
 static void XRHShowUnplug(double level, double gained, double minutes) {
@@ -327,6 +338,7 @@ static BOOL XRHLooksStopped(double level, int *reason) {
     if (XRHLimitActive()) {
         if (XRHLimitInhibited()) return NO;
     }
+    if (XRHThermalHot()) return NO;   // 高温保护停的
     return r != 0;
 }
 
@@ -344,6 +356,16 @@ static void XRHShowScheduled(double start, double full, int max) {
                      [NSString stringWithFormat:XRHText(@"先停在 %d%%，约 %@ 开始充", @"Holding at %d%%, charging from about %@"), max, startAt],
                      fullAt, XRHText(@"定时充满", @"Scheduled"),
                      XRHText(@"定时充满", @"Full by"), fullAt);
+}
+
+// 定时充满在等着就弹「定时充满」并返回 YES（插电提醒和「试试看」共用）
+static BOOL XRHShowScheduledIfWaiting(void) {
+    NSDictionary *state = XRHLimitState();
+    double schedStart = [state[@"schedStart"] doubleValue], schedFull = [state[@"schedFull"] doubleValue];
+    if (!XRHLimitActive() || schedFull <= 0 || [state[@"schedActive"] boolValue]) return NO;
+    XRHDebugLog(@"[Alert] 插电 定时充满 %@ 开始、%@ 充满", XRHClock(schedStart), XRHClock(schedFull));
+    XRHShowScheduled(schedStart, schedFull, XRHLimitMax());
+    return YES;
 }
 
 #pragma mark - 记住实际充电速度
@@ -454,13 +476,7 @@ static void XRHPlugInWhenReady(NSMutableArray<NSNumber *> *amps, int tries) {
         nowW = (!isnan(avg) && !isnan(volts)) ? fabs(volts * avg) / 1e6 : NAN;
     }
     XRHDebugLog(@"[Alert] 插电 实际 %.1fW", nowW);
-    NSDictionary *state = XRHLimitState();
-    double schedStart = [state[@"schedStart"] doubleValue], schedFull = [state[@"schedFull"] doubleValue];
-    if (XRHLimitActive() && schedFull > 0 && ![state[@"schedActive"] boolValue]) {
-        XRHDebugLog(@"[Alert] 插电 定时充满 %@ 开始、%@ 充满", XRHClock(schedStart), XRHClock(schedFull));
-        XRHShowScheduled(schedStart, schedFull, XRHLimitMax());
-        return;
-    }
+    if (XRHShowScheduledIfWaiting()) return;
     XRHShowPlugIn(XRBatteryAdapterWatts(), XRBatteryAdapterIsWireless(), level, minutes, target, nowW);
 }
 
@@ -499,11 +515,20 @@ static void XRHAlertTick(void) {
         [gAmps removeAllObjects];
         return;
     }
+    // 高温保护：进入时弹一次（不受提醒开关和冷却限制，它是功能本身的反馈）
+    static BOOL wasThermal;
+    BOOL thermal = XRHThermalHot();
+    if (thermal && !wasThermal) {
+        XRHDebugLog(@"[Alert] 高温保护 %.1f", XRBatteryTemperature());
+        XRHShowThermalGuard(XRBatteryTemperature());
+    }
+    wasThermal = thermal;
+
     BOOL anyOn = NO;
     for (int i = 0; i < XRHAlertCount; i++) anyOn |= XRHAlertOn(i);
     if (!anyOn) return;
 
-    XRHCheckHot(XRBatteryTemperature());
+    if (!thermal) XRHCheckHot(XRBatteryTemperature());   // 保护中不再弹「偏热」
     double watts = XRBatteryPowerWatts(), level = XRBatteryLevel();   // 接电源时是充电头送进来的总功率（同数显线）
 
     if (gConnected) {
@@ -681,6 +706,7 @@ static void XRHTryAlert(int n) {
                 XRHShowToast(XRHToastInfo, @"bolt.fill", notPlugged, XRHText(@"插上电源后显示充电功率和预计时间", @"Plug in to see charging power and time"), @"—", notPlugged);
                 return;
             }
+            if (XRHShowScheduledIfWaiting()) return;
             int target = XRHLimitActive() ? XRHLimitMax() : 100;
             double minutes = XRHMinutesByRate(XRHLearnedRate(XRHRateKeyNow()), level, target);
             if (isnan(minutes)) minutes = (!isnan(amps) && amps > 300 && !isnan(full) && !isnan(level)) ? XRHMinutesToTarget(level, target, full, amps) : NAN;

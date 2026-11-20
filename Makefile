@@ -16,6 +16,15 @@ ifneq ($(FINALPACKAGE),1)
 xrhea_CFLAGS += -DXRH_DEBUG=1
 endif
 
+# backboardd 里的部分（不能链 UIKit）：低电量模式下保持高刷新率（Backboard/Tweak.x）
+TWEAK_NAME += xrheabb
+xrheabb_FILES = Backboard/Tweak.x
+xrheabb_CFLAGS = -fobjc-arc
+xrheabb_FRAMEWORKS = Foundation
+ifneq ($(FINALPACKAGE),1)
+xrheabb_CFLAGS += -DXRH_DEBUG=1
+endif
+
 include $(THEOS_MAKE_PATH)/tweak.mk
 
 SUBPROJECTS += Prefs Daemon

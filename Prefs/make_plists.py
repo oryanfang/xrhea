@@ -70,8 +70,12 @@ PAGES["Root"] = ("xrhea", [
     group(),
     # 电池信息：详情页是代码写的（XRHBatteryController），图标和右边的健康度在 XRHRootListController 里填
     {"cell": "PSLinkCell", "label": "电池信息", "detail": "XRHBatteryController", "xrhBatteryRow": True, "id": "battery"},   # id：prefs:root=xrhea&path=battery 直达（点提示打开详情用）
-    # 充电上限：图标是代码画的（XRHRootListController，xrhSymbol + xrhSymbolColor）
-    dict(link("充电上限", "ChargeLimit"), xrhSymbol="bolt.shield.fill", xrhSymbolColor="teal"),
+    # 充电上限：图标是代码画的橙底半亮闪电（XRHRootListController 的 XRHBoltHalfIcon）
+    dict(link("充电上限", "ChargeLimit"), xrhDrawn="boltHalf"),
+    # 优化：图标是代码画的紫底白色叶子（XRHRootListController 的 XRHLeafIcon）
+    dict(link("优化", "Optimize"), xrhDrawn="leaf"),
+    # 低电量模式：图标是代码画的黄底白色电池（XRHRootListController 的 XRHLowPowerIcon）
+    dict(link("低电量模式", "LowPower"), xrhDrawn="lowPower"),
     dict(link("提示", "Toast"), xrhSymbol="bell.badge.fill", xrhSymbolColor="red"),
     # 以后的功能区（提醒等）每个一个子页面，加在这里
     group(),
@@ -82,25 +86,45 @@ PAGES["Root"] = ("xrhea", [
     # 注销在导航栏右上角（XRHRootListController -viewDidLoad）
 ])
 
+# 优化：高温保护在 xrhead（Daemon/main.m 的 XRHThermalTick）；自动低电量模式在 SpringBoard（Tweak/LowPower.m）
+PAGES["Optimize"] = ("优化", [
+    # 数值都用滑块（默认 = 推荐值，页脚写推荐值），特殊需求自己拖
+    group("高温保护", "停充：达到温度后停止充电。间歇充电：停 3 分钟、充 3 分钟交替，平均电流约减半。低于设定温度 3℃ 后恢复。推荐 40℃。"),
+    dict(switch("高温保护", "thermalGuard", False), xrhNote="充电时", height=52),
+    dict(slider("温度", "thermalTemp", 40, 30, 50, "celsius", 2, requires="thermalGuard", step=1), height=52),
+    dict(choice("处理方式", "thermalMode", [0, 1], ["停充", "间歇充电"], 1, requires="thermalGuard"), height=52),
+])
+
+# 低电量模式：自动开关在 SpringBoard（Tweak/LowPower.m）；保持高刷新率在 backboardd（Backboard/Tweak.x），开关由 SpringBoard 用 Darwin 通知状态值传过去
+PAGES["LowPower"] = ("低电量模式", [
+    group("自动开关", "锁屏时开启的低电量模式在解锁后关闭；电量低于设定值时保持开启。推荐低于 20% 开启、充到 80% 关闭。"),
+    dict(switch("低电量时开启", "lpmBelowOn", False), xrhNote="低于设定电量时", height=52),
+    dict(slider("电量", "lpmBelow", 20, 0, 100, "level", 2, requires="lpmBelowOn", step=5), height=52),
+    dict(switch("充电后关闭", "lpmOffOn", False), xrhNote="充到设定电量时", height=52),
+    dict(slider("电量", "lpmOffAt", 80, 0, 100, "level", 2, requires="lpmOffOn", step=5), height=52),
+    dict(switch("锁屏时开启", "lpmLocked", False), xrhNote="解锁后恢复", height=52),
+    group("显示", "低电量模式下屏幕最高刷新率保持 120Hz，其他省电措施不变；滑动时耗电略增。仅限 ProMotion 机型。"),
+    dict(switch("保持高刷新率", "lpmKeepHighRefresh", False), xrhNote="低电量模式下", height=52),
+])
+
 PAGES["ChargeLimit"] = ("充电上限", [
-    group(None, "到上限就停止充电，插着线时电源直接给手机供电，电池不充也不放。掉到恢复线以下才重新充，不会在上限附近反复启停。"),
+    # 每组的说明放在这一组下面（footer），不用空分组挂文字，免得飘在两组之间对不齐
+    group(None, "达到上限后停止充电，由电源直接供电；低于恢复线时恢复充电。"),
     switch("启用充电上限", "chargeLimit", False),
     choice("上限", "chargeLimitMax", [60, 70, 75, 80, 85, 90], ["60%", "70%", "75%", "80%", "85%", "90%"], 80,
            requires="chargeLimit"),
     choice("掉到多少再充", "chargeLimitGap", [3, 5, 10, 20], ["上限 − 3%", "上限 − 5%", "上限 − 10%", "上限 − 20%"], 5,
            short=["−3%", "−5%", "−10%", "−20%"], requires="chargeLimit",
            message="比如上限 80%、选「上限 − 5%」：充到 80% 停，用到 75% 以下再插着线时才重新充。"),
+    dict(group(None, "插电时可选择本次充满，拔线后恢复上限。30 天未充满时提示充满一次，用于校准电量。"), xrhRequires="chargeLimit"),
     switch("插上电源时询问", "chargeLimitAsk", True, requires="chargeLimit"),
-    group(None, "插上电源时弹窗问「确认」还是「这次充满」，外出前想充满就点「这次充满」，拔线后自动恢复上限。"
-                "超过 30 天没充满过时，这个弹窗会提醒你充满一次（关掉询问也会提醒），让电量统计保持准确。"),
-    group(None, "停充要等 30 秒左右才生效，为了不超过上限，充得快时会提前一点停，可能停在上限少 1%。"
-                "请关掉系统「设置 › 电池 › 充电」里的优化充电，它和 xrhea 用的是同一个开关，会互相打架。"
-                "关掉这里或卸载 xrhea 会马上恢复充电；重启手机也会恢复默认。"),
-    # 定时充满（Daemon/main.m 的 XRHScheduleTick）：夜里先停在上限，按记住的充电速度算好时间，充满时间前刚好充满
-    dict(group("定时充满"), xrhRequires="chargeLimit"),
-    dict(switch("定时充满", "chargeSchedule", False, requires="chargeLimit"), xrhNote="夜里停在上限", height=52),
+    # 定时充满（Daemon/main.m 的 XRHScheduleTick）：先停在上限，按记住的充电速度算好时间，充满时间前刚好充满
+    dict(group(None, "开始时间按充电器实测速度计算。"), xrhRequires="chargeLimit"),
+    dict(switch("定时充满", "chargeSchedule", False, requires="chargeLimit"), xrhNote="设定时间前充满", height=52),
     _pref({"cell": "PSStaticTextCell", "cellClass": "XRHTimeCell", "label": "充满时间", "height": 52},
           "chargeScheduleTime", 7 * 60, False, "chargeLimit,chargeSchedule"),
+    # 注意事项放在页面最底下
+    group(None, "停充约 30 秒后生效，快充时提前 1% 停止。需关闭系统「优化电池充电」。关闭本功能、卸载或重启后恢复充电。"),
 ])
 
 def alert(label, note, key, default, n):
@@ -210,29 +234,42 @@ EN = {
     "灵动岛": "Dynamic Island", "长条": "Long", "短条": "Short", "正在充电": "Charging", "约40分钟": "~40 min", "点按跳转": "Tap to Open", "打开电池信息": "battery details",
     "中断": "Stopped", "插着却不充": "plugged, not charging",
     "不要为了热闹而点亮每一个开关。": "No need to light up every switch.",
-    "%@ 开始充，%@ 前充满": "Charging from %@, full by %@", "定时充满": "Scheduled Full Charge", "夜里停在上限": "hold at the limit overnight", "充满时间": "Full By",
+    "%@ 开始充，%@ 前充满": "Charging from %@, full by %@", "定时充满": "Scheduled Full Charge", "设定时间前充满": "full by the set time", "开始时间按充电器实测速度计算。": "The start time is based on the measured speed of the charger.", "充满时间": "Full By",
     "到点": "Target", "充到 %d%%": "at %d%%", "电量": "Level", "异常": "Issues", "用电": "Usage",
     "接触": "Loose", "1 分钟断开 ≥ 3 次": "≥ 3 drops / min", "低温": "Cold", "充电 < 5 ℃": "charging < 5 °C",
     "睡前": "Bedtime", "22 点后 < 30%": "< 30% after 10 PM",
     "充满": "Full", "降速": "Throttled", "待机": "Standby", "未开上限": "no limit", "过热限流": "heat-limited", "锁屏 > 3%/h": "locked > 3%/h",
     "功率 · 时长": "power · ETA", "到达上限": "at limit", "拔线充入量": "added on unplug", "≥ 40 ℃": "≥ 40 °C",
+    # 优化
+    "优化": "Optimization", "高温保护": "Heat Protection", "充电时": "while charging", "温度": "Temperature",
+    "处理方式": "Action", "停充": "Stop Charging", "间歇充电": "Intermittent Charging",
+    "停充：达到温度后停止充电。间歇充电：停 3 分钟、充 3 分钟交替，平均电流约减半。低于设定温度 3℃ 后恢复。推荐 40℃。":
+        "Stop Charging: charging stops at the set temperature. Intermittent Charging: alternates 3 minutes off and 3 minutes on, roughly halving the average current. Resumes 3 °C below the set temperature. Recommended: 40 °C.",
+    "低电量模式": "Low Power Mode", "自动开关": "Automation", "显示": "Display",
+    "保持高刷新率": "Keep High Refresh Rate", "低于设定电量时": "below the set level", "充到设定电量时": "at the set level", "低电量模式下": "in Low Power Mode",
+    "低电量模式下屏幕最高刷新率保持 120Hz，其他省电措施不变；滑动时耗电略增。仅限 ProMotion 机型。":
+        "Keeps the display's maximum refresh rate at 120 Hz in Low Power Mode; other power savings stay on. Scrolling uses slightly more power. ProMotion models only.", "低电量时开启": "Turn On When Low", "充电后关闭": "Turn Off When Charged", "电量": "Level",
+    "关闭": "Off", "锁屏时开启": "Turn On When Locked", "解锁后恢复": "restored on unlock",
+    "锁屏时开启的低电量模式在解锁后关闭；电量低于设定值时保持开启。推荐低于 20% 开启、充到 80% 关闭。":
+        "Low Power Mode turned on at lock turns off on unlock; it stays on if the battery is below the set level. Recommended: on below 20%, off at 80%.",
+    "高温保护中": "Heat Protection", "38℃": "38 °C", "40℃": "40 °C", "42℃": "42 °C", "45℃": "45 °C",
     # 充电上限
     "插上电源时询问": "Ask When Plugged In",
-    "插上电源时弹窗问「确认」还是「这次充满」，外出前想充满就点「这次充满」，拔线后自动恢复上限。超过 30 天没充满过时，这个弹窗会提醒你充满一次（关掉询问也会提醒），让电量统计保持准确。":
-        "When you plug in, xrhea asks whether to keep the limit or charge to 100% this time. Heading out? Tap \"Charge to 100% This Time\"; the limit comes back once you unplug. If it's been over 30 days since the last full charge, it reminds you to charge fully once (even with asking turned off) to keep the battery reading accurate.",
+    "插电时可选择本次充满，拔线后恢复上限。30 天未充满时提示充满一次，用于校准电量。":
+        "Choose a one-time full charge when plugging in; the limit returns after unplugging. If not fully charged for 30 days, a full charge is suggested to calibrate the battery reading.",
     '已到上限 %d%%': 'At Limit (%d%%)',
     '已到上限': 'At Limit',
     '约 %@ 到 %d%%': '%@ to %d%%',
     "充电上限": "Charge Limit",
-    "到上限就停止充电，插着线时电源直接给手机供电，电池不充也不放。掉到恢复线以下才重新充，不会在上限附近反复启停。":
-        "Charging stops at the limit. While plugged in, the charger powers the phone directly and the battery neither charges nor drains. It only resumes below the resume level, so it won't flip on and off around the limit.",
+    "达到上限后停止充电，由电源直接供电；低于恢复线时恢复充电。":
+        "Charging stops at the limit and the charger powers the phone directly. Charging resumes below the resume level.",
     "启用充电上限": "Enable Charge Limit", "上限": "Limit", "掉到多少再充": "Resume At",
     "−3%": "−3%", "−5%": "−5%", "−10%": "−10%", "−20%": "−20%",
     "上限 − 3%": "Limit − 3%", "上限 − 5%": "Limit − 5%", "上限 − 10%": "Limit − 10%", "上限 − 20%": "Limit − 20%",
     "比如上限 80%、选「上限 − 5%」：充到 80% 停，用到 75% 以下再插着线时才重新充。":
         "E.g. with an 80% limit and \"Limit − 5%\", charging stops at 80% and starts again once it's below 75% while plugged in.",
-    "停充要等 30 秒左右才生效，为了不超过上限，充得快时会提前一点停，可能停在上限少 1%。请关掉系统「设置 › 电池 › 充电」里的优化充电，它和 xrhea 用的是同一个开关，会互相打架。关掉这里或卸载 xrhea 会马上恢复充电；重启手机也会恢复默认。":
-        "Stopping takes about 30 seconds, so to never go over the limit it stops a little early when charging fast and may end 1% below the limit. Turn off Optimized Charging in Settings › Battery › Charging: it uses the same switch as xrhea and they'll fight. Turning this off or uninstalling xrhea resumes charging right away; restarting the phone also resets it.",
+    "停充约 30 秒后生效，快充时提前 1% 停止。需关闭系统「优化电池充电」。关闭本功能、卸载或重启后恢复充电。":
+        "Stopping takes effect after about 30 seconds; fast charging stops 1% early. Turn off the system’s Optimized Battery Charging. Turning this off, uninstalling or restarting resumes charging.",
     # 电池信息详情页（XRHBatteryController.m）
     "最大容量（相对新电池）": "Maximum Capacity (relative to new)", "容量": "Capacity",
     "实际容量": "Full Charge Capacity", "设计容量": "Design Capacity", "当前电量": "Current Charge",

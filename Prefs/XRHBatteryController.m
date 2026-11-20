@@ -3,6 +3,7 @@
 #import "XRHLocalize.h"
 #import "XRBattery.h"
 #import "XRBatteryEstimate.h"
+#import "XRHKeys.h"
 #import <Preferences/PSSpecifier.h>
 
 @interface PSListController (XRHBatteryPrivate)
@@ -43,7 +44,12 @@ UIImage *XRHBatteryRowIcon(void) {
 
 #pragma mark - 充电上限（设置在 ChargeLimit 页，停充由后台服务 xrhead 做）
 
-// 充电上限现在管不管（开着、总开关开着、不是「这次充满」）
+// xrhead 写的状态文件（停充、定时充满、高温保护）
+static NSDictionary *XRHStateFile(void) {
+    return [NSDictionary dictionaryWithContentsOfFile:XRH_LIMIT_STATE_FILE];
+}
+
+// 充电上限现在管不管（开着、总开关开着、不是「这次充满」、定时充满还没到点）
 static BOOL XRHLimitOn(void) {
     CFPropertyListRef on = CFPreferencesCopyAppValue(CFSTR("chargeLimit"), CFSTR("com.xyrith.xrhea"));
     CFPropertyListRef master = CFPreferencesCopyAppValue(CFSTR("enabled"), CFSTR("com.xyrith.xrhea"));
@@ -52,6 +58,7 @@ static BOOL XRHLimitOn(void) {
     if (on) CFRelease(on);
     if (master) CFRelease(master);
     if (once) CFRelease(once);
+    if (r && [XRHStateFile()[@"schedActive"] boolValue]) r = NO;
     return r;
 }
 
@@ -65,8 +72,8 @@ static int XRHLimitMax(void) {
 // 现在是不是被 xrhea 停在上限（服务写的状态文件 + 接着电源 + 没在充）
 static BOOL XRHLimitHolding(void) {
     if (!XRHLimitOn() || !XRBatteryExternalConnected() || XRBatteryIsCharging()) return NO;
-    NSDictionary *state = [NSDictionary dictionaryWithContentsOfFile:@"/var/mobile/Library/Caches/com.xyrith.xrhea.limit.plist"];
-    return [state[@"inhibited"] boolValue];
+    NSDictionary *state = XRHStateFile();
+    return [state[@"inhibited"] boolValue] && ![state[@"thermalHot"] boolValue];
 }
 
 #pragma mark - 异常判断（标 ⚠️，点开给解决办法）
@@ -396,9 +403,12 @@ static NSString *XRHDuration(double minutes) {
 // 充电：分两段算（见上）；放电：剩余电量 ÷ 平均电流。都用「电量 % × 实际容量」当剩余电量，
 // 不用 AppleRawCurrentCapacity（它对应的是 AppleRawMaxCapacity，和实际容量不是一套，混着用会算偏）。电流太小（<50mA）时不估
 - (id)xrhEstimate:(PSSpecifier *)s {
+    // 高温保护中（xrhead 写 thermalHot）：停充 / 间歇充电时不按电流估
+    if (XRBatteryExternalConnected() && [XRHStateFile()[@"thermalHot"] boolValue])
+        return XRHL(@"高温保护中");
     // 定时充满在等着（xrhead 算好了时间、还没开始充）：「5:40 开始充，7:00 前充满」
     if (XRBatteryExternalConnected() && XRHLimitOn()) {
-        NSDictionary *state = [NSDictionary dictionaryWithContentsOfFile:@"/var/mobile/Library/Caches/com.xyrith.xrhea.limit.plist"];
+        NSDictionary *state = XRHStateFile();
         double start = [state[@"schedStart"] doubleValue], full = [state[@"schedFull"] doubleValue];
         if (full > 0 && ![state[@"schedActive"] boolValue]) {
             NSDateFormatter *f = [NSDateFormatter new];

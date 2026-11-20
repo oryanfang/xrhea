@@ -19,12 +19,20 @@ Objective‑C / Logos, built with Theos, for **roothide** jailbreaks. Made for i
 - Stop charging at 60–90%. While plugged in, the charger powers the phone directly and the battery neither charges nor drains; charging resumes once the level drops below the limit by the amount you choose.
 - Stops about 1% early when charging fast, so it never goes over.
 - When you plug in, asks whether to keep the limit or charge to 100% this time (handy before heading out); the limit comes back when you unplug.
+- Scheduled full charge: holds at the limit overnight and starts charging in time to reach 100% by the time you set, using the charging speed it has learned for that charger.
 - Reminds you to charge fully once a month to keep the battery reading accurate.
 - Runs as a small root daemon. Turning the limit off, uninstalling, or restarting the phone resumes normal charging.
 
+**Optimization**
+- Heat protection: when the battery reaches the set temperature (30–50 °C, 40 °C recommended) while charging, either stop charging or switch to intermittent charging (3 minutes off, 3 minutes on, roughly halving the average current). Resumes 3 °C below the set temperature.
+
+**Low Power Mode**
+- Turn Low Power Mode on below a set level, off once charged to a set level, and on while the phone is locked (off again when you unlock).
+- Keep the 120 Hz refresh rate in Low Power Mode on ProMotion models; every other power saving stays on. This part runs inside backboardd and only changes how the display reads the Low Power Mode state.
+
 **Alerts**
 - Shown from the Dynamic Island, as a long pill like the one iOS shows when you plug in (text on the left, the value on the right) or a shorter one; phones without a Dynamic Island get a banner.
-- Charging: plugged in (charging power), target level reached, limit reached, fully charged, charging summary on unplug.
+- Charging: plugged in (charging power, or the scheduled start and finish times), target level reached, limit reached, fully charged, charging summary on unplug, heat protection.
 - Issues: slow charging, charging slowed by heat, loose cable, plugged in but not charging, battery hot, charging in the cold.
 - Usage: battery draining while locked, low battery at bedtime, high power draw.
 - Each alert has its own switch and a **Try It** button that shows it with your phone's current readings.

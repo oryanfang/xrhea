@@ -66,22 +66,40 @@ Banner: a card slides down from the top; swipe up or tap to close.</string>
 	<string>中文</string>
 	<key>中断</key>
 	<string>Stopped</string>
+	<key>优化</key>
+	<string>Optimization</string>
+	<key>低于设定电量时</key>
+	<string>below the set level</string>
 	<key>低温</key>
 	<string>Cold</string>
+	<key>低电量时开启</key>
+	<string>Turn On When Low</string>
+	<key>低电量模式</key>
+	<string>Low Power Mode</string>
+	<key>低电量模式下</key>
+	<string>in Low Power Mode</string>
+	<key>低电量模式下屏幕最高刷新率保持 120Hz，其他省电措施不变；滑动时耗电略增。仅限 ProMotion 机型。</key>
+	<string>Keeps the display's maximum refresh rate at 120 Hz in Low Power Mode; other power savings stay on. Scrolling uses slightly more power. ProMotion models only.</string>
 	<key>作者</key>
 	<string>Author</string>
 	<key>使用</key>
 	<string>Usage</string>
 	<key>使用电池</key>
 	<string>On Battery</string>
+	<key>保持高刷新率</key>
+	<string>Keep High Refresh Rate</string>
 	<key>停充</key>
-	<string>Paused</string>
-	<key>停充要等 30 秒左右才生效，为了不超过上限，充得快时会提前一点停，可能停在上限少 1%。请关掉系统「设置 › 电池 › 充电」里的优化充电，它和 xrhea 用的是同一个开关，会互相打架。关掉这里或卸载 xrhea 会马上恢复充电；重启手机也会恢复默认。</key>
-	<string>Stopping takes about 30 seconds, so to never go over the limit it stops a little early when charging fast and may end 1% below the limit. Turn off Optimized Charging in Settings › Battery › Charging: it uses the same switch as xrhea and they'll fight. Turning this off or uninstalling xrhea resumes charging right away; restarting the phone also resets it.</string>
+	<string>Stop Charging</string>
+	<key>停充约 30 秒后生效，快充时提前 1% 停止。需关闭系统「优化电池充电」。关闭本功能、卸载或重启后恢复充电。</key>
+	<string>Stopping takes effect after about 30 seconds; fast charging stops 1% early. Turn off the system’s Optimized Battery Charging. Turning this off, uninstalling or restarting resumes charging.</string>
+	<key>停充：达到温度后停止充电。间歇充电：停 3 分钟、充 3 分钟交替，平均电流约减半。低于设定温度 3℃ 后恢复。推荐 40℃。</key>
+	<string>Stop Charging: charging stops at the set temperature. Intermittent Charging: alternates 3 minutes off and 3 minutes on, roughly halving the average current. Resumes 3 °C below the set temperature. Recommended: 40 °C.</string>
 	<key>充到 %d%% 提醒</key>
 	<string>alert at %d%%</string>
 	<key>充到 100% 时</key>
 	<string>at 100%</string>
+	<key>充到设定电量时</key>
+	<string>at the set level</string>
 	<key>充满</key>
 	<string>Full</string>
 	<key>充满时间</key>
@@ -92,6 +110,8 @@ Banner: a card slides down from the top; swipe up or tap to close.</string>
 	<string>Charge Limit</string>
 	<key>充电中</key>
 	<string>Charging</string>
+	<key>充电后关闭</key>
+	<string>Turn Off When Charged</string>
 	<key>充电器</key>
 	<string>Charger</string>
 	<key>充电器和手机只谈到了 5 V，线或充电头不支持快充。
@@ -100,14 +120,14 @@ Banner: a card slides down from the top; swipe up or tap to close.</string>
 • Use a cable and charger that support USB-C PD fast charging</string>
 	<key>充电太慢</key>
 	<string>Charging Slowly</string>
+	<key>充电时</key>
+	<string>while charging</string>
 	<key>充电时 &lt; 5 ℃</key>
 	<string>charging below 5 °C</string>
 	<key>充电预计已经算上了 80% 以后会变慢；用完预计按你此刻的用法算，换个用法就会变。</key>
 	<string>The charging estimate accounts for charging slowing down after 80%. Time left assumes you keep using the phone the way you are right now.</string>
 	<key>关于</key>
 	<string>About</string>
-	<key>到上限就停止充电，插着线时电源直接给手机供电，电池不充也不放。掉到恢复线以下才重新充，不会在上限附近反复启停。</key>
-	<string>Charging stops at the limit. While plugged in, the charger powers the phone directly and the battery neither charges nor drains. It only resumes below the resume level, so it won't flip on and off around the limit.</string>
 	<key>到上限时</key>
 	<string>at the limit</string>
 	<key>到点</key>
@@ -136,12 +156,12 @@ Banner: a card slides down from the top; swipe up or tap to close.</string>
 	<string>Model</string>
 	<key>型号是充电器自己报上来的名字（苹果的内部写法）。</key>
 	<string>The model is the name the charger reports (Apple's internal naming).</string>
+	<key>处理方式</key>
+	<string>Action</string>
 	<key>复制地址</key>
 	<string>Copy URL</string>
 	<key>复制问题信息</key>
 	<string>Copy Debug Info</string>
-	<key>夜里停在上限</key>
-	<string>hold at the limit overnight</string>
 	<key>好</key>
 	<string>OK</string>
 	<key>定时充满</key>
@@ -166,6 +186,8 @@ Banner: a card slides down from the top; swipe up or tap to close.</string>
 	<string>Plugged In, Not Charging</string>
 	<key>已重置</key>
 	<string>Reset Done</string>
+	<key>开始时间按充电器实测速度计算。</key>
+	<string>The start time is based on the measured speed of the charger.</string>
 	<key>异常</key>
 	<string>Issues</string>
 	<key>当前电量</key>
@@ -194,12 +216,12 @@ Banner: a card slides down from the top; swipe up or tap to close.</string>
 	<string>Alerts</string>
 	<key>提示样式</key>
 	<string>Style</string>
-	<key>插上电源时弹窗问「确认」还是「这次充满」，外出前想充满就点「这次充满」，拔线后自动恢复上限。超过 30 天没充满过时，这个弹窗会提醒你充满一次（关掉询问也会提醒），让电量统计保持准确。</key>
-	<string>When you plug in, xrhea asks whether to keep the limit or charge to 100% this time. Heading out? Tap "Charge to 100% This Time"; the limit comes back once you unplug. If it's been over 30 days since the last full charge, it reminds you to charge fully once (even with asking turned off) to keep the battery reading accurate.</string>
 	<key>插上电源时询问</key>
 	<string>Ask When Plugged In</string>
 	<key>插电</key>
 	<string>Plug-in</string>
+	<key>插电时可选择本次充满，拔线后恢复上限。30 天未充满时提示充满一次，用于校准电量。</key>
+	<string>Choose a one-time full charge when plugging in; the limit returns after unplugging. If not fully charged for 30 days, a full charge is suggested to calibrate the battery reading.</string>
 	<key>插着充电器，功率却一直低于 5 W。
 • 换一根线或换个充电头试试
 • 手机太热时也会自动降速</key>
@@ -210,6 +232,8 @@ Banner: a card slides down from the top; swipe up or tap to close.</string>
 	<string>plugged in, not charging</string>
 	<key>无线</key>
 	<string>Wireless</string>
+	<key>显示</key>
+	<string>Display</string>
 	<key>显示充电功率</key>
 	<string>shows charging power</string>
 	<key>最大功率</key>
@@ -290,8 +314,14 @@ Banner: a card slides down from the top; swipe up or tap to close.</string>
 	<string>Draining Fast</string>
 	<key>自动</key>
 	<string>Automatic</string>
+	<key>自动开关</key>
+	<string>Automation</string>
 	<key>规格</key>
 	<string>Output</string>
+	<key>解锁后恢复</key>
+	<string>restored on unlock</string>
+	<key>设定时间前充满</key>
+	<string>full by the set time</string>
 	<key>设计容量</key>
 	<string>Design Capacity</string>
 	<key>试试看</key>
@@ -310,6 +340,8 @@ Banner: a card slides down from the top; swipe up or tap to close.</string>
 「复制问题信息」会复制 xrhea 版本、iOS 版本、机型和改过的设置，可以贴进反馈里。</key>
 	<string>Source: https://oryanfang.github.io/repo/
 "Copy Debug Info" copies the xrhea and iOS versions, device model and changed settings for pasting into a report.</string>
+	<key>达到上限后停止充电，由电源直接供电；低于恢复线时恢复充电。</key>
+	<string>Charging stops at the limit and the charger powers the phone directly. Charging resumes below the resume level.</string>
 	<key>过热</key>
 	<string>Hot</string>
 	<key>过热被限速</key>
@@ -322,10 +354,16 @@ Banner: a card slides down from the top; swipe up or tap to close.</string>
 	<string>Reset</string>
 	<key>重置所有设置</key>
 	<string>Reset All Settings</string>
+	<key>锁屏时开启</key>
+	<string>Turn On When Locked</string>
+	<key>锁屏时开启的低电量模式在解锁后关闭；电量低于设定值时保持开启。推荐低于 20% 开启、充到 80% 关闭。</key>
+	<string>Low Power Mode turned on at lock turns off on unlock; it stays on if the battery is below the set level. Recommended: on below 20%, off at 80%.</string>
 	<key>锁屏每小时 &gt; 3%</key>
 	<string>locked, &gt; 3% per hour</string>
 	<key>长条</key>
 	<string>Long</string>
+	<key>间歇充电</key>
+	<string>Intermittent Charging</string>
 	<key>降速</key>
 	<string>Throttled</string>
 	<key>需注销</key>
@@ -334,6 +372,8 @@ Banner: a card slides down from the top; swipe up or tap to close.</string>
 	<string>Estimate</string>
 	<key>频繁断开</key>
 	<string>keeps disconnecting</string>
+	<key>高温保护</key>
+	<string>Heat Protection</string>
 	<key>高耗电</key>
 	<string>Drain</string>
 </dict>

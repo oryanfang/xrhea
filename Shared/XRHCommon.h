@@ -73,6 +73,7 @@ UIWindowScene *XRHActiveWindowScene(void);
 NSDictionary *XRHLimitState(void);
 // 现在是不是 xrhead 停的充
 BOOL XRHLimitInhibited(void);
+BOOL XRHThermalHot(void);
 
 #pragma mark - 改设置后立即刷新
 
@@ -84,6 +85,8 @@ void XRHRunRefreshers(void);
 #pragma mark - 各模块入口（各在自己的 .x 文件里，Tweak.x 按顺序调用）
 
 void XRHInitChargePrompt(void);   // 插上电源时的充电上限弹窗（ChargePrompt.m）
+void XRHInitLowPower(void);       // 低电量模式（LowPower.m）：自动开关
+void XRHSyncHighRefresh(void);    // 低电量模式下保持高刷新率的开关传给 backboardd（LowPower.m）
 void XRHInitAlerts(void);         // 提醒（Alerts.m）：插电、到上限、充电慢、偏热、拔线总结、耗电快
 BOOL XRHChargePromptShowing(void);
 
