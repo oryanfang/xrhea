@@ -4,6 +4,12 @@
 
 Rhea（瑞亚）是土卫五，希腊神话里的众神之母、一切力量的源头；电池就是手机的力量之源。xrhea 看护的就是它：详细的电池读数、真正能停充的充电上限、看得清电去哪了的电池日志，还有从灵动岛弹出的、一眼看得懂的提醒。代码全部从头写。
 
+<p align="center">
+  <img src="docs/screenshots/battery-zh.png" width="30%" alt="电池信息">
+  <img src="docs/screenshots/log-zh.png" width="30%" alt="日志：电量曲线、充电记录和耗电排查">
+  <img src="docs/screenshots/alerts-zh.png" width="30%" alt="提示设置">
+</p>
+
 Objective‑C / Logos，用 Theos 编译，适用 **roothide** 越狱。为 iOS 17 制作，**只在 iOS 17.3.1 上测试过**，其他版本可能有功能不工作。设置页有中文和英文，跟随系统语言，也可以在「关于 › 语言」里选。
 
 ## 功能

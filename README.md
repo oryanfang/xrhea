@@ -4,6 +4,12 @@
 
 Rhea, Saturn's moon, is the mother of the gods in Greek myth: the source of their strength. The battery is your phone's. xrhea looks after it: detailed battery readings, a real charge limit, a battery log that shows where the charge goes, and short, readable alerts from the Dynamic Island. Written from scratch.
 
+<p align="center">
+  <img src="docs/screenshots/battery.png" width="30%" alt="Battery details">
+  <img src="docs/screenshots/log.png" width="30%" alt="Log: battery level chart, charging history and battery drain">
+  <img src="docs/screenshots/alerts.png" width="30%" alt="Alerts settings">
+</p>
+
 Objective‑C / Logos, built with Theos, for **roothide** jailbreaks. Made for iOS 17 and **only tested on iOS 17.3.1**; some features may not work on other versions. The settings UI is in English and Chinese: it follows the system language, or pick one under About › Language.
 
 ## Features

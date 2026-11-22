@@ -283,7 +283,7 @@ Banner: a card slides down from the top; swipe up or tap to close.</string>
 	<key>拔线后恢复</key>
 	<string>restored on unplug</string>
 	<key>拔线时显示充了多少</key>
-	<string>shows how much was added</string>
+	<string>on unplug</string>
 	<key>按现在的速度，约 %@ 用完。</key>
 	<string>At this rate, about %@ left.</string>
 	<key>换个网络对比，或开飞行模式再关</key>
@@ -311,7 +311,7 @@ Banner: a card slides down from the top; swipe up or tap to close.</string>
 • Try a different cable or charger
 • The phone also slows charging when it's hot</string>
 	<key>插着电却不充</key>
-	<string>plugged in, not charging</string>
+	<string>not charging</string>
 	<key>改名</key>
 	<string>Rename</string>
 	<key>数据收集中</key>
@@ -509,7 +509,7 @@ Banner: a card slides down from the top; swipe up or tap to close.</string>
 	<string>Source: https://oryanfang.github.io/repo/
 "Copy Debug Info" copies the xrhea and iOS versions, device model and changed settings for pasting into a report.</string>
 	<key>边充边玩停充时</key>
-	<string>battery paused under load</string>
+	<string>under load</string>
 	<key>边充边玩直充</key>
 	<string>Bypass While Gaming</string>
 	<key>达到上限后停止充电，由电源直接供电；比上限低出回落值后恢复充电，避免在上限附近反复启停。推荐上限 80%、回落 5%。</key>
@@ -549,7 +549,7 @@ Banner: a card slides down from the top; swipe up or tap to close.</string>
 	<key>锁屏时最多：%@</key>
 	<string>Most while locked: %@</string>
 	<key>锁屏每小时 &gt; 3%</key>
-	<string>locked, &gt; 3% per hour</string>
+	<string>&gt; 3%/h locked</string>
 	<key>长条</key>
 	<string>Long</string>
 	<key>间歇充电</key>
@@ -567,7 +567,7 @@ Banner: a card slides down from the top; swipe up or tap to close.</string>
 	<key>预计</key>
 	<string>Estimate</string>
 	<key>频繁断开</key>
-	<string>keeps disconnecting</string>
+	<string>drops often</string>
 	<key>高温保护</key>
 	<string>Heat Protection</string>
 	<key>高温保护中</key>
