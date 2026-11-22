@@ -18,10 +18,15 @@ NSDictionary *XRHLimitState(void) {
     return [NSDictionary dictionaryWithContentsOfFile:XRH_LIMIT_STATE_FILE];
 }
 
-// 是充电上限停着的（高温保护停的不算）
+// 是充电上限停着的（高温保护、边充边玩直充停的不算）
 BOOL XRHLimitInhibited(void) {
     NSDictionary *s = XRHLimitState();
-    return [s[@"inhibited"] boolValue] && ![s[@"thermalHot"] boolValue];
+    return [s[@"inhibited"] boolValue] && ![s[@"thermalHot"] boolValue] && ![s[@"bypassStop"] boolValue];
+}
+
+// 正在边充边玩直充（xrhead 写）
+BOOL XRHBypassActive(void) {
+    return [XRHLimitState()[@"bypass"] boolValue];
 }
 
 // 高温保护中（xrhead 写；停充 / 间歇充电都算）

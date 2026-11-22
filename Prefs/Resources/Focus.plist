@@ -98,6 +98,24 @@
 			<key>height</key>
 			<integer>52</integer>
 			<key>key</key>
+			<string>focusAllow.alertBypass</string>
+			<key>label</key>
+			<string>直充</string>
+			<key>xrhRequires</key>
+			<string>toastFocusQuiet</string>
+		</dict>
+		<dict>
+			<key>PostNotification</key>
+			<string>com.xyrith.xrhea/prefschanged</string>
+			<key>cell</key>
+			<string>PSSwitchCell</string>
+			<key>default</key>
+			<false/>
+			<key>defaults</key>
+			<string>com.xyrith.xrhea</string>
+			<key>height</key>
+			<integer>52</integer>
+			<key>key</key>
 			<string>focusAllow.alertFull</string>
 			<key>label</key>
 			<string>充满</string>
@@ -297,6 +315,42 @@
 			<string>focusAllow.alertDrain</string>
 			<key>label</key>
 			<string>高耗电</string>
+			<key>xrhRequires</key>
+			<string>toastFocusQuiet</string>
+		</dict>
+		<dict>
+			<key>PostNotification</key>
+			<string>com.xyrith.xrhea/prefschanged</string>
+			<key>cell</key>
+			<string>PSSwitchCell</string>
+			<key>default</key>
+			<false/>
+			<key>defaults</key>
+			<string>com.xyrith.xrhea</string>
+			<key>height</key>
+			<integer>52</integer>
+			<key>key</key>
+			<string>focusAllow.bgDrainAlert</string>
+			<key>label</key>
+			<string>后台耗电</string>
+			<key>xrhRequires</key>
+			<string>toastFocusQuiet</string>
+		</dict>
+		<dict>
+			<key>PostNotification</key>
+			<string>com.xyrith.xrhea/prefschanged</string>
+			<key>cell</key>
+			<string>PSSwitchCell</string>
+			<key>default</key>
+			<false/>
+			<key>defaults</key>
+			<string>com.xyrith.xrhea</string>
+			<key>height</key>
+			<integer>52</integer>
+			<key>key</key>
+			<string>focusAllow.alertWeekly</string>
+			<key>label</key>
+			<string>每周</string>
 			<key>xrhRequires</key>
 			<string>toastFocusQuiet</string>
 		</dict>

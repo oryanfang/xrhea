@@ -36,6 +36,7 @@ static void XRHPrefsChanged(CFNotificationCenterRef center, void *observer,
         XRHInitChargePrompt();
         XRHInitAlerts();
         XRHInitLowPower();
+        XRHInitChargeLog();
         gModulesLoaded = YES;
 
 #if XRH_DEBUG

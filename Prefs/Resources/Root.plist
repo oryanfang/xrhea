@@ -24,6 +24,20 @@
 			<key>cell</key>
 			<string>PSLinkCell</string>
 			<key>detail</key>
+			<string>XRHLogController</string>
+			<key>id</key>
+			<string>log</string>
+			<key>label</key>
+			<string>日志</string>
+			<key>xrhSymbol</key>
+			<string>chart.xyaxis.line</string>
+			<key>xrhSymbolColor</key>
+			<string>blue</string>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSLinkCell</string>
+			<key>detail</key>
 			<string>XRHSubListController</string>
 			<key>label</key>
 			<string>充电上限</string>

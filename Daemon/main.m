@@ -20,19 +20,54 @@
 //     先按上限停着；到「充满时间 − 从上限充到 100% 要多久 − 15 分钟」开始充，之后这次插着线期间都不管上限（到点还没满也不会又停回上限），
 //     拔线作废。要多久按插件记下的这个充电头的实际速度（rates.plist 的 tail，没有就用 fast × 0.35，再没有按每分钟 0.4%）
 //
+//   - 高温保护（thermalGuard）：充电时电池到 thermalTemp（无线充电用 thermalTempWireless，默认 37℃）就停充或间歇充电，降 3℃ 后恢复；优先于下面所有规则
+//   - 边充边玩直充（bypassCharge）：接着电源、电量 ≥ 20%，整机功耗（PowerTelemetryData.SystemLoad）最近 1 分钟平均高于 bypassWatts（默认 4 W）
+//     就停充，由电源直接供电；平均低于「设定值 − 1 W」1 分钟后恢复。上限已经停着时不用管
+//
 // 状态写给设置页 / 插件看：/var/mobile/Library/Caches/com.xyrith.xrhea.limit.plist
-//   {inhibited, max, resumeAt, time, lastFull, schedStart, schedFull, schedActive}（定时充满的开始 / 充满时间是 Unix 时间，不在时段里是 0）
+//   {inhibited, max, resumeAt, time, lastFull, schedStart, schedFull, schedActive, thermalHot, thermalStop, bypass, bypassStop}
+//   （定时充满的开始 / 充满时间是 Unix 时间，不在时段里是 0；bypass = 正在直充，bypassStop = 这次停充是直充发的）
+//
+// 顺带记电量曲线（设置页「日志」画 24 小时曲线）：/var/mobile/Library/Caches/com.xyrith.xrhea.levels.plist，{levels: [[Unix 秒, 电量 %, 标记]…]}，
+//   标记 1 接着电源 / 2 在充 / 4 灭屏。电量、标记变了记一笔，没变化时最多 10 分钟补一笔；保留 8 天。总开关关着时不记
+//
+// 耗电排行（设置页「日志 › 耗电排行」）：设置页发 com.xyrith.xrhea/drain-refresh 时，只读查一次系统的电池记录
+//   /var/containers/Shared/SystemGroup/<UUID>/Library/BatteryLife/CurrentPowerlog.PLSQL（powerlogd 写，「设置 › 电池」用的同一份；2026-11-21 真机探测）：
+//   - PLAccountingOperator_Aggregate_RootNodeEnergy：每小时一桶（timestamp 起、timeInterval 3600），每个 NodeID 在每个硬件（RootNodeID）上的耗电
+//   - PLAccountingOperator_EventNone_Nodes：NodeID → 名字（App 的 bundle ID、系统进程名）；硬件本身（CPU、Display…）也是节点，排行里去掉
+//   - PLDisplayAgent_EventPoint_Display（Block = Backlight，Active 0/1）：屏幕开关，用来挑出「锁屏时」的整小时（屏幕开着不到两成）
+//   算最近 24 小时的总排行和锁屏时排行，写 /var/mobile/Library/Caches/com.xyrith.xrhea.drain.plist，
+//   {time, all: [[名字, 耗电]…], locked: [[名字, 耗电]…], lockedHours}（耗电是系统的原始单位，设置页只按比例显示），然后发 com.xyrith.xrhea/drain-updated。
+//   只读打开（SQLITE_OPEN_READONLY），每分钟最多查一次；表名、字段对不上就写一份空的（设置页隐藏这一项）
+//   后台耗电提醒（bgDrainAlert，「优化」页）开着时每小时自己查一次：最近 3 个锁屏小时里，同一个第三方 App 每小时都占锁屏耗电的
+//   bgDrainShare%（默认 30）以上，就在结果里带上 alert = {name, share, time}，并发 com.xyrith.xrhea/drain-alert（SpringBoard 弹提醒）
+//   顺带：push = 最近 24 小时每小时推送重连次数（PLPushAgent_EventPoint_APSDConnectedEvent，pushFrom = 第一个小时的开始），
+//   wakes = 最近 24 小时网络唤醒次数（PLNetworkAgent_EventPoint_Wake）。推送连接被代理 / VPN 掐断时会每小时重连几十次（2026-11-21 真机：平时 5～8 次）
+//
+// 每周小结（「提示」页「每周」）：SpringBoard 发 week-ask（上一周）/ week-preview（最近 7 天），算好写 week.plist 再发 week-done：
+//   {mode: week / preview, from, to, charges（充电次数，来自 charges.plist）, standby（锁屏时每小时掉几 %，来自电量曲线）,
+//    top: [耗电最多的几个名字]（系统电池记录）, pushBadDays（推送重连偏多的天数：一天里连续 3 小时每小时 > 15 次）}
 #import <Foundation/Foundation.h>
 #import <dlfcn.h>
 #import <mach/mach.h>
 #import <notify.h>
 #import <signal.h>
+#import <sqlite3.h>
 
 #define XRH_DOMAIN       CFSTR("com.xyrith.xrhea")
 #define XRH_NOTIFY       "com.xyrith.xrhea/prefschanged"
 #define XRH_STATE_FILE   @"/var/mobile/Library/Caches/com.xyrith.xrhea.limit.plist"
 #define XRH_LOG_FILE     @"/var/mobile/Library/Caches/com.xyrith.xrhea.daemon.log"
 #define XRH_RATES_FILE   @"/var/mobile/Library/Caches/com.xyrith.xrhea.rates.plist"   // 插件记下的实际充电速度（同 Shared/XRHKeys.h）
+#define XRH_LEVELS_FILE  @"/var/mobile/Library/Caches/com.xyrith.xrhea.levels.plist"  // 电量曲线（同 Shared/XRHKeys.h），见 XRHLevelSample
+#define XRH_DRAIN_FILE   @"/var/mobile/Library/Caches/com.xyrith.xrhea.drain.plist"   // 耗电排行（同 Shared/XRHKeys.h），见 XRHDrainRefresh
+#define XRH_DRAIN_ASK    "com.xyrith.xrhea/drain-refresh"   // 设置页打开「日志」时发：重新算一次耗电排行
+#define XRH_DRAIN_DONE   "com.xyrith.xrhea/drain-updated"   // 算完了，设置页重新读
+#define XRH_DRAIN_ALERT  "com.xyrith.xrhea/drain-alert"     // 有 App 锁屏时耗电过多（SpringBoard 读 drain.plist 的 alert 弹提醒）
+#define XRH_WEEK_FILE    @"/var/mobile/Library/Caches/com.xyrith.xrhea.week.plist"   // 每周小结（同 Shared/XRHKeys.h），见 XRHWeekQuery
+#define XRH_WEEK_ASK     "com.xyrith.xrhea/week-ask"        // SpringBoard：算上一周（周一 0 点到这周一 0 点）
+#define XRH_WEEK_PREVIEW "com.xyrith.xrhea/week-preview"    // SpringBoard「预览」：算最近 7 天
+#define XRH_WEEK_DONE    "com.xyrith.xrhea/week-done"       // 算完了
 
 typedef mach_port_t xr_io_object_t;
 static xr_io_object_t (*pIOServiceGetMatchingService)(mach_port_t, CFDictionaryRef);
@@ -56,6 +91,10 @@ static BOOL gThermalHot;           // 在保护中（拔线清掉）
 static BOOL gThermalInhibit;       // 当前这次停充是高温保护发的（解除时要恢复）
 static double gThermalSince;       // 进入保护的时间（间歇充电按它算周期）
 static const double kXRHThermalGap = 3, kXRHPulseSeconds = 180;
+static BOOL gBypass;               // 边充边玩直充：正在直充
+static BOOL gBypassInhibit;        // 当前这次停充是直充发的（结束时要恢复）
+static NSMutableArray<NSArray *> *gLoads;   // 最近 1 分钟的整机功耗 [[时间, W]…]
+static const double kXRHBypassWindow = 60, kXRHBypassGap = 1, kXRHBypassMinLevel = 20;
 
 #pragma mark - 日志（只在调试版）
 
@@ -100,11 +139,28 @@ static double XRHBatteryNumber(NSString *key, double fallback) {
     return [v isKindOfClass:[NSNumber class]] ? [v doubleValue] : fallback;
 }
 
+static id XRHBatteryObject(NSString *key) {
+    return (__bridge_transfer id)pIORegistryEntryCreateCFProperty(gBattery, (__bridge CFStringRef)key, kCFAllocatorDefault, 0);
+}
+
+static BOOL XRHAdapterWireless(void) {
+    NSDictionary *a = XRHBatteryObject(@"AdapterDetails");
+    return [a isKindOfClass:[NSDictionary class]] && [a[@"IsWireless"] boolValue];
+}
+
+// 整机功耗 W（PowerTelemetryData.SystemLoad，mW）；读不到 NAN
+static double XRHSystemLoad(void) {
+    NSDictionary *t = XRHBatteryObject(@"PowerTelemetryData");
+    id v = [t isKindOfClass:[NSDictionary class]] ? t[@"SystemLoad"] : nil;
+    return [v isKindOfClass:[NSNumber class]] ? [v doubleValue] / 1000 : NAN;
+}
+
 static void XRHWriteState(int max, int resumeAt) {
     NSDictionary *state = @{@"inhibited": @(gInhibited), @"max": @(max), @"resumeAt": @(resumeAt),
                             @"time": @([NSDate date].timeIntervalSince1970), @"lastFull": @(gLastFull),
                             @"schedStart": @(gSchedStart), @"schedFull": @(gSchedFull), @"schedActive": @(gSchedActive),
-                            @"thermalHot": @(gThermalHot), @"thermalStop": @(gThermalInhibit)};
+                            @"thermalHot": @(gThermalHot), @"thermalStop": @(gThermalInhibit),
+                            @"bypass": @(gBypass), @"bypassStop": @(gBypassInhibit)};
     [state writeToFile:XRH_STATE_FILE atomically:YES];
     [[NSFileManager defaultManager] setAttributes:@{NSFilePosixPermissions: @0644} ofItemAtPath:XRH_STATE_FILE error:nil];
 }
@@ -134,6 +190,12 @@ static int XRHPrefInt(NSString *key, int fallback, int lo, int hi) {
     id v = XRHPref(key);
     int i = [v respondsToSelector:@selector(intValue)] ? [v intValue] : fallback;
     return MAX(lo, MIN(hi, i));
+}
+
+static double XRHPrefDouble(NSString *key, double fallback, double lo, double hi) {
+    id v = XRHPref(key);
+    double d = [v respondsToSelector:@selector(doubleValue)] ? [v doubleValue] : fallback;
+    return MAX(lo, MIN(hi, d));
 }
 
 #pragma mark - 定时充满
@@ -195,7 +257,7 @@ static BOOL XRHThermalTick(BOOL connected, double temp, int max, int resumeAt) {
     BOOL wasHot = gThermalHot;
     if (!connected || !XRHPrefBool(@"enabled", YES) || !XRHPrefBool(@"thermalGuard", NO) || isnan(temp)) gThermalHot = NO;
     else {
-        int limit = XRHPrefInt(@"thermalTemp", 40, 30, 50);
+        int limit = XRHAdapterWireless() ? XRHPrefInt(@"thermalTempWireless", 37, 30, 50) : XRHPrefInt(@"thermalTemp", 40, 30, 50);
         if (!gThermalHot && temp >= limit) {
             gThermalHot = YES;
             gThermalSince = [NSDate date].timeIntervalSince1970;
@@ -212,13 +274,348 @@ static BOOL XRHThermalTick(BOOL connected, double temp, int max, int resumeAt) {
     return phase % 2 == 0;   // 偶数段停、奇数段充
 }
 
-#pragma mark - 判断
+#pragma mark - 边充边玩直充
+
+// 返回 YES = 现在该直充（停止给电池充电，电源直接供电）。用最近 1 分钟的平均功耗判断，免得游戏里忽高忽低来回切
+static BOOL XRHBypassTick(BOOL connected, double level, int max, int resumeAt) {
+    BOOL was = gBypass;
+    double now = [NSDate date].timeIntervalSince1970;
+    if (!gLoads) gLoads = [NSMutableArray array];
+    if (!connected || !XRHPrefBool(@"enabled", YES) || !XRHPrefBool(@"bypassCharge", NO) || isnan(level) || (!gBypass && level < kXRHBypassMinLevel)) {
+        gBypass = NO;
+        [gLoads removeAllObjects];
+    } else {
+        double load = XRHSystemLoad();
+        if (!isnan(load)) [gLoads addObject:@[@(now), @(load)]];
+        while (gLoads.count && now - [gLoads.firstObject[0] doubleValue] > kXRHBypassWindow + 15) [gLoads removeObjectAtIndex:0];
+        // 攒够 1 分钟的读数才判断（每 20 秒一笔，至少 3 笔）
+        if (gLoads.count >= 3 && now - [gLoads.firstObject[0] doubleValue] >= kXRHBypassWindow - 5) {
+            double sum = 0;
+            for (NSArray *l in gLoads) sum += [l[1] doubleValue];
+            double avg = sum / gLoads.count, limit = XRHPrefDouble(@"bypassWatts", 4, 2, 10);
+            if (!gBypass && avg > limit) { gBypass = YES; XRHLog(@"直充：1 分钟平均 %.1f W > %.1f W", avg, limit); }
+            else if (gBypass && avg < limit - kXRHBypassGap) { gBypass = NO; XRHLog(@"直充结束：1 分钟平均 %.1f W", avg); }
+        }
+    }
+    if (was != gBypass) XRHWriteState(max, resumeAt);
+    return gBypass;
+}
+
+#pragma mark - 耗电排行（读系统电池记录）
+
+static NSString *XRHPowerlogPath(void) {
+    NSString *root = @"/var/containers/Shared/SystemGroup";
+    for (NSString *uuid in [[NSFileManager defaultManager] contentsOfDirectoryAtPath:root error:nil]) {
+        NSString *p = [NSString stringWithFormat:@"%@/%@/Library/BatteryLife/CurrentPowerlog.PLSQL", root, uuid];
+        if ([[NSFileManager defaultManager] fileExistsAtPath:p]) return p;
+    }
+    return nil;
+}
+
+// 屏幕在 [from, to) 里开着的比例。events：[[时间, 开着?]…] 按时间排好，第一条是 from 之前最后一次变化
+static double XRHScreenOnShare(NSArray<NSArray *> *events, double from, double to) {
+    if (to <= from) return 0;
+    double on = 0, t = from;
+    BOOL state = NO;
+    for (NSArray *e in events) {
+        double et = [e[0] doubleValue];
+        if (et <= from) { state = [e[1] boolValue]; continue; }
+        if (et >= to) break;
+        if (state) on += et - t;
+        t = et;
+        state = [e[1] boolValue];
+    }
+    if (state) on += to - t;
+    return on / (to - from);
+}
+
+static NSArray *XRHTopList(NSDictionary<NSString *, NSNumber *> *energy) {
+    NSArray *names = [energy keysSortedByValueUsingComparator:^NSComparisonResult(NSNumber *a, NSNumber *b) { return [b compare:a]; }];
+    NSMutableArray *out = [NSMutableArray array];
+    for (NSString *n in names) {
+        if (out.count >= 60 || [energy[n] doubleValue] <= 0) break;
+        [out addObject:@[n, @(lround([energy[n] doubleValue]))]];
+    }
+    return out;
+}
+
+// 返回一句给日志的话（在后台队列跑，日志由主线程写）
+static NSString *XRHDrainQuery(void) {
+    NSString *note;
+    double now = [NSDate date].timeIntervalSince1970, from = now - 24 * 3600;
+    NSMutableDictionary *result = [@{@"time": @(now), @"all": @[], @"locked": @[], @"lockedHours": @0} mutableCopy];
+    NSString *path = XRHPowerlogPath();
+    sqlite3 *db = NULL;
+    if (path && sqlite3_open_v2(path.fileSystemRepresentation, &db, SQLITE_OPEN_READONLY, NULL) == SQLITE_OK) {
+        sqlite3_busy_timeout(db, 3000);
+        sqlite3_stmt *st = NULL;
+        // 屏幕开关：from 之前最后一次 + 之后的每次
+        NSMutableArray *screen = [NSMutableArray array];
+        const char *sqlScreen = "SELECT timestamp, Active FROM PLDisplayAgent_EventPoint_Display WHERE Block = 'Backlight' AND timestamp >= "
+                                "(SELECT IFNULL(MAX(timestamp), 0) FROM PLDisplayAgent_EventPoint_Display WHERE Block = 'Backlight' AND timestamp < ?1) ORDER BY timestamp";
+        if (sqlite3_prepare_v2(db, sqlScreen, -1, &st, NULL) == SQLITE_OK) {
+            sqlite3_bind_double(st, 1, from);
+            while (sqlite3_step(st) == SQLITE_ROW) [screen addObject:@[@(sqlite3_column_double(st, 0)), @(sqlite3_column_int(st, 1) != 0)]];
+        }
+        sqlite3_finalize(st);
+        // 每小时每个节点的耗电（去掉硬件节点）
+        const char *sqlEnergy = "SELECT e.timestamp, e.timeInterval, e.Energy, n.Name FROM PLAccountingOperator_Aggregate_RootNodeEnergy e "
+                                "JOIN PLAccountingOperator_EventNone_Nodes n ON n.ID = e.NodeID "
+                                "WHERE e.timestamp + e.timeInterval > ?1 AND n.Name != '__GLOBAL__' "
+                                "AND e.NodeID NOT IN (SELECT DISTINCT RootNodeID FROM PLAccountingOperator_Aggregate_RootNodeEnergy)";
+        NSMutableDictionary<NSString *, NSNumber *> *all = [NSMutableDictionary dictionary], *locked = [NSMutableDictionary dictionary];
+        NSMutableDictionary<NSNumber *, NSNumber *> *bucketLocked = [NSMutableDictionary dictionary];
+        NSMutableDictionary<NSNumber *, NSMutableDictionary *> *lockedByBucket = [NSMutableDictionary dictionary];   // 后台耗电提醒用：每个锁屏小时各进程的耗电
+        int rows = 0;
+        if (sqlite3_prepare_v2(db, sqlEnergy, -1, &st, NULL) == SQLITE_OK) {
+            sqlite3_bind_double(st, 1, from);
+            while (sqlite3_step(st) == SQLITE_ROW) {
+                double ts = sqlite3_column_double(st, 0), len = sqlite3_column_double(st, 1), e = sqlite3_column_double(st, 2);
+                const unsigned char *name = sqlite3_column_text(st, 3);
+                if (!name || e <= 0) continue;
+                rows++;
+                NSString *n = [NSString stringWithUTF8String:(const char *)name];
+                all[n] = @([all[n] doubleValue] + e);
+                NSNumber *key = @(lround(ts));
+                if (!bucketLocked[key]) bucketLocked[key] = @(screen.count > 0 && XRHScreenOnShare(screen, MAX(ts, from), MIN(ts + MAX(len, 1), now)) < 0.2);
+                if ([bucketLocked[key] boolValue]) {
+                    locked[n] = @([locked[n] doubleValue] + e);
+                    NSMutableDictionary *b = lockedByBucket[key] ?: (lockedByBucket[key] = [NSMutableDictionary dictionary]);
+                    b[n] = @([b[n] doubleValue] + e);
+                }
+            }
+        } else {
+            note = [NSString stringWithFormat:@"耗电排行：查询失败 %s", sqlite3_errmsg(db)];
+        }
+        sqlite3_finalize(st);
+        // 推送重连：最近 24 小时每小时几次（第 0 个是 23 小时前开始的那一小时，最后一个是现在这一小时）
+        double hour0 = floor(now / 3600) * 3600 - 23 * 3600;
+        NSMutableArray *push = [NSMutableArray array];
+        for (int i = 0; i < 24; i++) [push addObject:@0];
+        if (sqlite3_prepare_v2(db, "SELECT CAST((timestamp - ?1) / 3600 AS INTEGER), COUNT(*) FROM PLPushAgent_EventPoint_APSDConnectedEvent "
+                                   "WHERE timestamp >= ?1 GROUP BY 1", -1, &st, NULL) == SQLITE_OK) {
+            sqlite3_bind_double(st, 1, hour0);
+            while (sqlite3_step(st) == SQLITE_ROW) {
+                int i = sqlite3_column_int(st, 0);
+                if (i >= 0 && i < 24) push[i] = @(sqlite3_column_int(st, 1));
+            }
+            result[@"push"] = push;
+            result[@"pushFrom"] = @(hour0);
+        }
+        sqlite3_finalize(st);
+        // 网络唤醒：最近 24 小时
+        if (sqlite3_prepare_v2(db, "SELECT COUNT(*) FROM PLNetworkAgent_EventPoint_Wake WHERE timestamp >= ?1", -1, &st, NULL) == SQLITE_OK) {
+            sqlite3_bind_double(st, 1, from);
+            if (sqlite3_step(st) == SQLITE_ROW) result[@"wakes"] = @(sqlite3_column_int(st, 0));
+        }
+        sqlite3_finalize(st);
+        sqlite3_close(db);
+        int lockedHours = 0;
+        for (NSNumber *v in bucketLocked.allValues) lockedHours += v.boolValue;
+        result[@"all"] = XRHTopList(all);
+        result[@"locked"] = XRHTopList(locked);
+        result[@"lockedHours"] = @(lockedHours);
+        // 后台耗电提醒：最近 3 个锁屏小时，第三方 App（不是 com.apple. 开头、带点的 bundle ID）每小时都超过设定占比
+        NSArray<NSNumber *> *keys = [lockedByBucket.allKeys sortedArrayUsingSelector:@selector(compare:)];
+        if (XRHPrefBool(@"bgDrainAlert", NO) && keys.count >= 3) {
+            double need = XRHPrefInt(@"bgDrainShare", 30, 20, 60) / 100.0;
+            NSArray *last3 = [keys subarrayWithRange:NSMakeRange(keys.count - 3, 3)];
+            NSString *best = nil;
+            double bestShare = 0;
+            for (NSString *n in lockedByBucket[last3.lastObject]) {
+                if (![n containsString:@"."] || [n hasPrefix:@"com.apple."]) continue;
+                double minShare = 1;
+                for (NSNumber *k in last3) {
+                    double total = 0;
+                    for (NSNumber *v in lockedByBucket[k].allValues) total += v.doubleValue;
+                    minShare = MIN(minShare, total > 0 ? [lockedByBucket[k][n] doubleValue] / total : 0);
+                }
+                if (minShare >= need && minShare > bestShare) { best = n; bestShare = minShare; }
+            }
+            if (best) result[@"alert"] = @{@"name": best, @"share": @(bestShare), @"time": last3.lastObject};
+        }
+        if (!note) note = [NSString stringWithFormat:@"耗电排行：%d 行，%lu 个进程，锁屏小时 %d，屏幕事件 %lu", rows, (unsigned long)all.count, lockedHours, (unsigned long)screen.count];
+    } else {
+        note = [NSString stringWithFormat:@"耗电排行：打不开电池记录 %@", path ?: @"（没找到）"];
+        if (db) sqlite3_close(db);
+    }
+    [result writeToFile:XRH_DRAIN_FILE atomically:YES];
+    [[NSFileManager defaultManager] setAttributes:@{NSFilePosixPermissions: @0644} ofItemAtPath:XRH_DRAIN_FILE error:nil];
+    return note;
+}
+
+#pragma mark - 每周小结
+
+// 一天里有没有连续 3 小时推送重连每小时 > 15 次
+static BOOL XRHPushBadRun(NSArray<NSNumber *> *counts) {
+    int run = 0;
+    for (NSNumber *c in counts) {
+        run = c.intValue > 15 ? run + 1 : 0;
+        if (run >= 3) return YES;
+    }
+    return NO;
+}
+
+// rolling = 最近 7 天（「预览」）；否则上一周（周一 0 点到这周一 0 点）。在后台队列跑，返回给日志的一句话
+static NSString *XRHWeekQuery(BOOL rolling) {
+    double now = [NSDate date].timeIntervalSince1970, from, to;
+    if (rolling) { to = now; from = now - 7 * 86400; }
+    else {
+        NSCalendar *cal = [[NSCalendar alloc] initWithCalendarIdentifier:NSCalendarIdentifierGregorian];
+        cal.firstWeekday = 2;   // 周一开头
+        NSDate *start = nil;
+        [cal rangeOfUnit:NSCalendarUnitWeekOfYear startDate:&start interval:NULL forDate:[NSDate date]];
+        to = start.timeIntervalSince1970;
+        from = to - 7 * 86400;
+    }
+    NSMutableDictionary *w = [@{@"mode": rolling ? @"preview" : @"week", @"from": @(from), @"to": @(to), @"time": @(now)} mutableCopy];
+
+    // 充电次数
+    int charges = 0;
+    for (NSDictionary *r in [NSDictionary dictionaryWithContentsOfFile:@"/var/mobile/Library/Caches/com.xyrith.xrhea.charges.plist"][@"records"]) {
+        double t = [r[@"start"] doubleValue];
+        if (t >= from && t < to) charges++;
+    }
+    w[@"charges"] = @(charges);
+
+    // 锁屏时平均每小时掉多少：电量曲线里灭屏、没接电源的时段（每段至少 10 分钟）
+    NSArray<NSArray *> *pts = [NSDictionary dictionaryWithContentsOfFile:XRH_LEVELS_FILE][@"levels"];
+    double drop = 0, hours = 0;
+    for (NSUInteger i = 0; i < pts.count;) {
+        int f = [pts[i][2] intValue];
+        if (!((f & 4) && !(f & 1))) { i++; continue; }
+        NSUInteger j = i;
+        while (j < pts.count && ([pts[j][2] intValue] & 4) && !([pts[j][2] intValue] & 1)) j++;
+        double t0 = MAX([pts[i][0] doubleValue], from), t1 = MIN(j < pts.count ? [pts[j][0] doubleValue] : now, to);
+        if (t1 - t0 >= 600) { hours += (t1 - t0) / 3600; drop += MAX([pts[i][1] doubleValue] - [pts[MIN(j, pts.count - 1)][1] doubleValue], 0); }
+        i = j;
+    }
+    if (hours >= 1) w[@"standby"] = @(round(drop / hours * 10) / 10);
+
+    // 耗电最多、推送重连偏多的天数（系统电池记录）
+    NSString *path = XRHPowerlogPath();
+    sqlite3 *db = NULL;
+    if (path && sqlite3_open_v2(path.fileSystemRepresentation, &db, SQLITE_OPEN_READONLY, NULL) == SQLITE_OK) {
+        sqlite3_busy_timeout(db, 3000);
+        sqlite3_stmt *st = NULL;
+        NSMutableArray *top = [NSMutableArray array];
+        if (sqlite3_prepare_v2(db, "SELECT n.Name, SUM(e.Energy) s FROM PLAccountingOperator_Aggregate_RootNodeEnergy e "
+                                   "JOIN PLAccountingOperator_EventNone_Nodes n ON n.ID = e.NodeID "
+                                   "WHERE e.timestamp >= ?1 AND e.timestamp < ?2 AND n.Name != '__GLOBAL__' "
+                                   "AND e.NodeID NOT IN (SELECT DISTINCT RootNodeID FROM PLAccountingOperator_Aggregate_RootNodeEnergy) "
+                                   "GROUP BY e.NodeID ORDER BY s DESC LIMIT 10", -1, &st, NULL) == SQLITE_OK) {
+            sqlite3_bind_double(st, 1, from);
+            sqlite3_bind_double(st, 2, to);
+            while (sqlite3_step(st) == SQLITE_ROW) {
+                const unsigned char *n = sqlite3_column_text(st, 0);
+                if (n) [top addObject:[NSString stringWithUTF8String:(const char *)n]];
+            }
+        }
+        sqlite3_finalize(st);
+        w[@"top"] = top;
+        NSMutableArray *hourly = [NSMutableArray array];
+        for (int i = 0; i < 7 * 24; i++) [hourly addObject:@0];
+        if (sqlite3_prepare_v2(db, "SELECT CAST((timestamp - ?1) / 3600 AS INTEGER), COUNT(*) FROM PLPushAgent_EventPoint_APSDConnectedEvent "
+                                   "WHERE timestamp >= ?1 AND timestamp < ?2 GROUP BY 1", -1, &st, NULL) == SQLITE_OK) {
+            sqlite3_bind_double(st, 1, from);
+            sqlite3_bind_double(st, 2, to);
+            while (sqlite3_step(st) == SQLITE_ROW) {
+                int i = sqlite3_column_int(st, 0);
+                if (i >= 0 && i < 7 * 24) hourly[i] = @(sqlite3_column_int(st, 1));
+            }
+            int bad = 0;
+            for (int d = 0; d < 7; d++) bad += XRHPushBadRun([hourly subarrayWithRange:NSMakeRange(d * 24, 24)]);
+            w[@"pushBadDays"] = @(bad);
+        }
+        sqlite3_finalize(st);
+        sqlite3_close(db);
+    }
+    [w writeToFile:XRH_WEEK_FILE atomically:YES];
+    [[NSFileManager defaultManager] setAttributes:@{NSFilePosixPermissions: @0644} ofItemAtPath:XRH_WEEK_FILE error:nil];
+    return [NSString stringWithFormat:@"每周小结（%@）：充电 %d 次，待机 %@，最多 %@，推送偏多 %@ 天", rolling ? @"最近 7 天" : @"上一周",
+            charges, w[@"standby"] ?: @"—", [w[@"top"] firstObject] ?: @"—", w[@"pushBadDays"] ?: @"—"];
+}
+
+static void XRHWeekRefresh(BOOL rolling) {
+    dispatch_async(dispatch_get_global_queue(QOS_CLASS_UTILITY, 0), ^{
+        NSString *note;
+        @autoreleasepool { note = XRHWeekQuery(rolling); }
+        dispatch_async(dispatch_get_main_queue(), ^{
+            XRHLog(@"%@", note);
+            notify_post(XRH_WEEK_DONE);
+        });
+    });
+}
+
+// 设置页要的时候查（在后台队列，不耽误停充判断）；每分钟最多一次，太勤就直接告诉它「好了」，让它读上次的。
+// 查完带了后台耗电提醒、而且是新的一个锁屏小时，就发 drain-alert
+static void XRHDrainRefresh(void) {
+    static double last, lastAlert;
+    static BOOL running;
+    double now = [NSDate date].timeIntervalSince1970;
+    if (running) return;
+    if (now - last < 60 || !XRHPrefBool(@"enabled", YES)) { notify_post(XRH_DRAIN_DONE); return; }
+    last = now;
+    running = YES;
+    dispatch_async(dispatch_get_global_queue(QOS_CLASS_UTILITY, 0), ^{
+        NSString *note;
+        @autoreleasepool { note = XRHDrainQuery(); }
+        dispatch_async(dispatch_get_main_queue(), ^{
+            running = NO;
+            XRHLog(@"%@", note);
+            notify_post(XRH_DRAIN_DONE);
+            NSDictionary *alert = [NSDictionary dictionaryWithContentsOfFile:XRH_DRAIN_FILE][@"alert"];
+            if ([alert isKindOfClass:[NSDictionary class]] && [alert[@"time"] doubleValue] > lastAlert) {
+                lastAlert = [alert[@"time"] doubleValue];
+                XRHLog(@"后台耗电提醒：%@ 占 %.0f%%", alert[@"name"], [alert[@"share"] doubleValue] * 100);
+                notify_post(XRH_DRAIN_ALERT);
+            }
+        });
+    });
+}
+
+#pragma mark - 电量曲线
+
+static NSMutableArray<NSArray *> *gLevels;
+static int gBlankToken = -1;
+static const double kXRHLevelKeep = 8 * 24 * 3600, kXRHLevelEvery = 10 * 60;   // 8 天：周一早上算上一整周也够
+
+static void XRHLevelSample(void) {
+    if (!XRHPrefBool(@"enabled", YES)) return;
+    double level = XRHBatteryNumber(@"CurrentCapacity", NAN);
+    if (isnan(level)) return;
+    uint64_t blanked = 0;
+    if (gBlankToken >= 0) notify_get_state(gBlankToken, &blanked);
+    int flags = (XRHBatteryNumber(@"ExternalConnected", 0) > 0 ? 1 : 0) | (XRHBatteryNumber(@"IsCharging", 0) > 0 ? 2 : 0) | (blanked ? 4 : 0);
+    double now = [NSDate date].timeIntervalSince1970;
+    if (!gLevels) {
+        NSArray *saved = [NSDictionary dictionaryWithContentsOfFile:XRH_LEVELS_FILE][@"levels"];
+        gLevels = [saved isKindOfClass:[NSArray class]] ? [saved mutableCopy] : [NSMutableArray array];
+    }
+    NSArray *last = gLevels.lastObject;
+    if (last && [last[1] intValue] == lround(level) && [last[2] intValue] == flags && now - [last[0] doubleValue] < kXRHLevelEvery) return;
+    [gLevels addObject:@[@(lround(now)), @(lround(level)), @(flags)]];
+    NSUInteger old = 0;
+    while (old < gLevels.count && [gLevels[old][0] doubleValue] < now - kXRHLevelKeep) old++;
+    if (old) [gLevels removeObjectsInRange:NSMakeRange(0, old)];
+    [@{@"levels": gLevels} writeToFile:XRH_LEVELS_FILE atomically:YES];
+    [[NSFileManager defaultManager] setAttributes:@{NSFilePosixPermissions: @0644} ofItemAtPath:XRH_LEVELS_FILE error:nil];
+}
+
+#pragma mark - 判断（插拔、电量变化、改设置、每 20 秒）
 
 static void XRHTick(NSString *reason) {
     CFPreferencesSynchronize(XRH_DOMAIN, CFSTR("mobile"), kCFPreferencesAnyHost);
     BOOL enabled = XRHPrefBool(@"enabled", YES) && XRHPrefBool(@"chargeLimit", NO);
     int max = XRHPrefInt(@"chargeLimitMax", 80, 50, 100);
     int resumeAt = max - XRHPrefInt(@"chargeLimitGap", 5, 1, 40);
+    XRHLevelSample();
+    // 后台耗电提醒开着：每小时自己查一次耗电排行
+    static double lastDrainCheck;
+    if (XRHPrefBool(@"bgDrainAlert", NO) && [NSDate date].timeIntervalSince1970 - lastDrainCheck >= 3600) {
+        lastDrainCheck = [NSDate date].timeIntervalSince1970;
+        XRHDrainRefresh();
+    }
 
     BOOL connected = XRHBatteryNumber(@"ExternalConnected", 0) > 0;
     BOOL charging = XRHBatteryNumber(@"IsCharging", 0) > 0;
@@ -237,9 +634,22 @@ static void XRHTick(NSString *reason) {
         else if (charging && since > 90) XRHSetInhibit(YES, max, resumeAt, @"高温保护：停着却又在充，再停一次");
         return;
     }
+    BOOL bypass = XRHBypassTick(connected, level, max, resumeAt);
     if (gThermalInhibit) {
         gThermalInhibit = NO;
-        if (gInhibited) XRHSetInhibit(NO, max, resumeAt, gThermalHot ? @"间歇充电：充" : @"高温保护结束");
+        if (bypass) gBypassInhibit = YES;   // 正好要直充：接着停着，算直充的
+        else if (gInhibited) XRHSetInhibit(NO, max, resumeAt, gThermalHot ? @"间歇充电：充" : @"高温保护结束");
+    }
+    // 边充边玩直充：上限已经停着就不用管（那次停充还是上限的）
+    if (bypass) {
+        CFAbsoluteTime since = CFAbsoluteTimeGetCurrent() - gLastCommand;
+        if (!gInhibited) { gBypassInhibit = YES; XRHSetInhibit(YES, max, resumeAt, [NSString stringWithFormat:@"边充边玩直充 %.1f W", XRHSystemLoad()]); }
+        else if (charging && since > 90) XRHSetInhibit(YES, max, resumeAt, @"直充：停着却又在充，再停一次");
+        return;
+    }
+    if (gBypassInhibit) {
+        gBypassInhibit = NO;
+        if (gInhibited) XRHSetInhibit(NO, max, resumeAt, @"直充结束");
     }
 
     // 充满了：记一下时间（每月充满提醒用）。每 6 小时最多写一次
@@ -330,6 +740,15 @@ int main(int argc, char *argv[]) {
         notify_register_dispatch(XRH_NOTIFY, &token, dispatch_get_main_queue(), ^(int t) { XRHTick(@"改了设置"); });
         notify_register_dispatch("com.apple.system.powersources.source", &token, dispatch_get_main_queue(), ^(int t) { XRHTick(@"电源变了"); });
         notify_register_dispatch("com.apple.system.powersources.percent", &token, dispatch_get_main_queue(), ^(int t) { XRHTick(@"电量变了"); });
+        notify_register_dispatch(XRH_WEEK_ASK, &token, dispatch_get_main_queue(), ^(int t) { XRHWeekRefresh(NO); });
+        notify_register_dispatch(XRH_WEEK_PREVIEW, &token, dispatch_get_main_queue(), ^(int t) { XRHWeekRefresh(YES); });
+        notify_register_dispatch(XRH_DRAIN_ASK, &token, dispatch_get_main_queue(), ^(int t) {
+            CFPreferencesSynchronize(XRH_DOMAIN, CFSTR("mobile"), kCFPreferencesAnyHost);
+            XRHDrainRefresh();
+        });
+        // 亮灭屏：电量曲线上标出锁屏的时段
+        notify_register_check("com.apple.springboard.hasBlankedScreen", &gBlankToken);
+        notify_register_dispatch("com.apple.springboard.hasBlankedScreen", &token, dispatch_get_main_queue(), ^(int t) { XRHLevelSample(); });
         dispatch_source_t timer = dispatch_source_create(DISPATCH_SOURCE_TYPE_TIMER, 0, 0, dispatch_get_main_queue());
         dispatch_source_set_timer(timer, dispatch_time(DISPATCH_TIME_NOW, 0), 20 * NSEC_PER_SEC, 5 * NSEC_PER_SEC);
         dispatch_source_set_event_handler(timer, ^{ XRHTick(@"定时"); });

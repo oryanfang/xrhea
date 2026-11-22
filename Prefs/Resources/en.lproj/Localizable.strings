@@ -12,16 +12,36 @@
 • Turn on Low Power Mode</string>
 	<key>%.0f 次</key>
 	<string>%.0f</string>
+	<key>%.1f%%/分</key>
+	<string>%.1f%%/min</string>
+	<key>%.1f%%/时</key>
+	<string>%.1f%%/h</string>
+	<key>%@ 充电头</key>
+	<string>%@ Charger</string>
 	<key>%@ 开始充，%@ 前充满</key>
 	<string>Charging from %@, full by %@</string>
+	<key>%@ 无线</key>
+	<string>%@ Wireless</string>
+	<key>%@ 起</key>
+	<string>Since %@</string>
 	<key>%ld 分</key>
 	<string>%ld min</string>
+	<key>%ld 天前</key>
+	<string>%ld days ago</string>
 	<key>%ld 小时</key>
 	<string>%ld h</string>
 	<key>%ld 小时 %ld 分</key>
 	<string>%ld h %ld min</string>
+	<key>%ld 次</key>
+	<string>%ld times</string>
 	<key>22 点后电量 &lt; 30%</key>
 	<string>&lt; 30% after 10 PM</string>
+	<key>Safari 网页视图</key>
+	<string>Safari View</string>
+	<key>iCloud 同步</key>
+	<string>iCloud Sync</string>
+	<key>iCloud 备份</key>
+	<string>iCloud Backup</string>
 	<key>xrhea 的所有设置都会恢复默认。确定吗？</key>
 	<string>All xrhea settings will be restored to defaults. Continue?</string>
 	<key>• 拔掉充电线
@@ -30,42 +50,38 @@
 	<string>• Unplug the charger
 • Close games and other demanding apps
 • Take off the case and keep it somewhere cool</string>
-	<key>−10%</key>
-	<string>−10%</string>
-	<key>−20%</key>
-	<string>−20%</string>
-	<key>−3%</key>
-	<string>−3%</string>
-	<key>−5%</key>
-	<string>−5%</string>
+	<key>┄ %d 次/时</key>
+	<string>┄ %d/h</string>
 	<key>「自动」：有灵动岛用灵动岛，没有用横幅。
 「灵动岛」：从灵动岛左右展开，几秒后缩回去，点一下提前收起。
 「横幅」：从顶部滑下一张卡片，往上划或点一下收起。</key>
 	<string>Automatic: Dynamic Island if your phone has one, otherwise a banner.
 Dynamic Island: expands out of the island and shrinks back after a few seconds; tap to close early.
 Banner: a card slides down from the top; swipe up or tap to close.</string>
+	<key>上次 %@</key>
+	<string>Last %@</string>
 	<key>上限</key>
 	<string>Limit</string>
-	<key>上限 − 10%</key>
-	<string>Limit − 10%</string>
-	<key>上限 − 20%</key>
-	<string>Limit − 20%</string>
-	<key>上限 − 3%</key>
-	<string>Limit − 3%</string>
-	<key>上限 − 5%</key>
-	<string>Limit − 5%</string>
+	<key>上限或本次充满</key>
+	<string>limit or full this time</string>
 	<key>不支持快充</key>
 	<string>No Fast Charging</string>
-	<key>不要为了热闹而点亮每一个开关。</key>
-	<string>No need to light up every switch.</string>
 	<key>专注时静默</key>
 	<string>Silence During Focus</string>
 	<key>专注模式</key>
 	<string>Focus</string>
+	<key>个人热点</key>
+	<string>Personal Hotspot</string>
 	<key>中文</key>
 	<string>中文</string>
 	<key>中断</key>
 	<string>Stopped</string>
+	<key>主屏幕</key>
+	<string>Home Screen</string>
+	<key>今天</key>
+	<string>Today</string>
+	<key>代理或 VPN 断开推送长连接</key>
+	<string>A proxy or VPN drops the push connection</string>
 	<key>优化</key>
 	<string>Optimization</string>
 	<key>低于设定电量时</key>
@@ -92,8 +108,10 @@ Banner: a card slides down from the top; swipe up or tap to close.</string>
 	<string>Stop Charging</string>
 	<key>停充约 30 秒后生效，快充时提前 1% 停止。需关闭系统「优化电池充电」。关闭本功能、卸载或重启后恢复充电。</key>
 	<string>Stopping takes effect after about 30 seconds; fast charging stops 1% early. Turn off the system’s Optimized Battery Charging. Turning this off, uninstalling or restarting resumes charging.</string>
-	<key>停充：达到温度后停止充电。间歇充电：停 3 分钟、充 3 分钟交替，平均电流约减半。低于设定温度 3℃ 后恢复。推荐 40℃。</key>
-	<string>Stop Charging: charging stops at the set temperature. Intermittent Charging: alternates 3 minutes off and 3 minutes on, roughly halving the average current. Resumes 3 °C below the set temperature. Recommended: 40 °C.</string>
+	<key>停充：达到温度后停止充电。间歇充电：停 3 分钟、充 3 分钟交替，平均电流约减半。低于设定温度 3℃ 后恢复。无线充电发热更多，按单独的温度提前保护。推荐有线 40℃、无线 37℃。</key>
+	<string>Stop Charging: stops once the temperature is reached. Intermittent Charging: alternates 3 minutes off and 3 minutes on, roughly halving the average current. Resumes 3 °C below the set temperature. Wireless charging runs hotter, so it uses its own, lower temperature. Recommended: 40 °C wired, 37 °C wireless.</string>
+	<key>充入</key>
+	<string>Added</string>
 	<key>充到 %d%% 提醒</key>
 	<string>alert at %d%%</string>
 	<key>充到 100% 时</key>
@@ -110,6 +128,8 @@ Banner: a card slides down from the top; swipe up or tap to close.</string>
 	<string>Charge Limit</string>
 	<key>充电中</key>
 	<string>Charging</string>
+	<key>充电保护</key>
+	<string>Charging Protection</string>
 	<key>充电后关闭</key>
 	<string>Turn Off When Charged</string>
 	<key>充电器</key>
@@ -124,10 +144,20 @@ Banner: a card slides down from the top; swipe up or tap to close.</string>
 	<string>while charging</string>
 	<key>充电时 &lt; 5 ℃</key>
 	<string>charging below 5 °C</string>
+	<key>充电时开启</key>
+	<string>Turn On While Charging</string>
+	<key>充电记录</key>
+	<string>Charging History</string>
 	<key>充电预计已经算上了 80% 以后会变慢；用完预计按你此刻的用法算，换个用法就会变。</key>
 	<string>The charging estimate accounts for charging slowing down after 80%. Time left assumes you keep using the phone the way you are right now.</string>
+	<key>全部 · 最近 24 小时</key>
+	<string>All · Last 24 Hours</string>
+	<key>全部记录</key>
+	<string>All Records</string>
 	<key>关于</key>
 	<string>About</string>
+	<key>到上限停充</key>
+	<string>Stopped at Limit</string>
 	<key>到上限时</key>
 	<string>at the limit</string>
 	<key>到点</key>
@@ -138,20 +168,42 @@ Banner: a card slides down from the top; swipe up or tap to close.</string>
 	<string>above 6 W</string>
 	<key>功率低于 5 W</key>
 	<string>under 5 W</string>
+	<key>功耗</key>
+	<string>Power</string>
 	<key>勿扰时不弹</key>
 	<string>quiet during Focus</string>
+	<key>占比</key>
+	<string>Share</string>
 	<key>反馈问题</key>
 	<string>Report an Issue</string>
 	<key>取消</key>
 	<string>Cancel</string>
 	<key>只在 iOS 17.3.1 上测试过。需要 roothide 越狱环境，只装了巨魔的手机用不了。打开本页时会到 GitHub 查一次有没有新版本。</key>
 	<string>Only tested on iOS 17.3.1. Requires a roothide jailbreak; it won't work with TrollStore alone. Opening this page checks GitHub once for a new version.</string>
+	<key>只算屏幕关闭超过八成的整小时，共 %ld 小时。</key>
+	<string>Counts only hours with the screen off over 80% of the time (%ld h).</string>
+	<key>可能的原因</key>
+	<string>Possible Causes</string>
+	<key>可选择本次充满，拔线后恢复上限。30 天未充满时提示充满一次，用于校准电量。</key>
+	<string>Choose to charge fully this time; the limit returns after unplugging. If it hasn't reached 100% in 30 days, you'll be reminded to charge fully once to calibrate.</string>
+	<key>后台</key>
+	<string>Background</string>
+	<key>后台下载</key>
+	<string>Background Downloads</string>
+	<key>后台耗电</key>
+	<string>Background</string>
+	<key>后台耗电提醒</key>
+	<string>Background Drain Alert</string>
 	<key>启用 xrhea</key>
 	<string>Enable xrhea</string>
-	<key>启用充电上限</key>
-	<string>Enable Charge Limit</string>
+	<key>周一 9:00 小结</key>
+	<string>Monday 9:00 summary</string>
+	<key>回落</key>
+	<string>Margin</string>
 	<key>在 Sileo 中添加</key>
 	<string>Add in Sileo</string>
+	<key>在正常范围内。</key>
+	<string>Within the normal range.</string>
 	<key>型号</key>
 	<string>Model</string>
 	<key>型号是充电器自己报上来的名字（苹果的内部写法）。</key>
@@ -162,8 +214,14 @@ Banner: a card slides down from the top; swipe up or tap to close.</string>
 	<string>Copy URL</string>
 	<key>复制问题信息</key>
 	<string>Copy Debug Info</string>
+	<key>夜间先停在上限，按充电器实测速度计算开始时间，在设定时间前充满。</key>
+	<string>Holds at the limit overnight, then starts in time to be full by the set time, based on the charger's measured speed.</string>
 	<key>好</key>
 	<string>OK</string>
+	<key>媒体处理</key>
+	<string>Media Processing</string>
+	<key>定位服务</key>
+	<string>Location Services</string>
 	<key>定时充满</key>
 	<string>Scheduled Full Charge</string>
 	<key>实时</key>
@@ -174,6 +232,12 @@ Banner: a card slides down from the top; swipe up or tap to close.</string>
 	<string>Full charge capacity is how much the battery holds when fully charged now. Maximum capacity = full charge ÷ design capacity.</string>
 	<key>容量</key>
 	<string>Capacity</string>
+	<key>导出</key>
+	<string>Export</string>
+	<key>导出失败</key>
+	<string>Export Failed</string>
+	<key>小组件</key>
+	<string>Widgets</string>
 	<key>已充满</key>
 	<string>Fully Charged</string>
 	<key>已到上限</key>
@@ -184,44 +248,62 @@ Banner: a card slides down from the top; swipe up or tap to close.</string>
 	<string>Copied</string>
 	<key>已接电源，暂停充电</key>
 	<string>Plugged In, Not Charging</string>
+	<key>已触发</key>
+	<string>Triggered</string>
 	<key>已重置</key>
 	<string>Reset Done</string>
-	<key>开始时间按充电器实测速度计算。</key>
-	<string>The start time is based on the measured speed of the charger.</string>
+	<key>平均功率</key>
+	<string>Average Power</string>
+	<key>平时每小时 5～10 次。每次重连都会唤醒手机并用网络重新握手，蜂窝网络下更耗电。</key>
+	<string>Normally 5–10 per hour. Each reconnect wakes the phone and redoes the network handshake, which costs more on cellular.</string>
+	<key>开启</key>
+	<string>On</string>
 	<key>异常</key>
 	<string>Issues</string>
 	<key>当前电量</key>
 	<string>Current Charge</string>
 	<key>待机耗电</key>
 	<string>Standby Drain</string>
+	<key>待机耗电、睡前、高耗电只在使用电池时判断。每周默认关闭。</key>
+	<string>Standby, Bedtime and High Drain only apply on battery. Weekly is off by default.</string>
 	<key>循环次数</key>
 	<string>Cycle Count</string>
 	<key>总结</key>
 	<string>Summary</string>
 	<key>慢充</key>
 	<string>Slow</string>
-	<key>打开电池详情</key>
-	<string>opens battery details</string>
+	<key>打开相关页面</key>
+	<string>opens the related page</string>
+	<key>把 push.apple.com、17.0.0.0/8 设为直连</key>
+	<string>Route push.apple.com and 17.0.0.0/8 directly</string>
 	<key>把 xrhea 的所有设置恢复成默认值。完成后需要注销。</key>
 	<string>Restores every xrhea setting to its default. Respring afterwards.</string>
+	<key>拔线</key>
+	<string>Unplugged</string>
+	<key>拔线后恢复</key>
+	<string>restored on unplug</string>
 	<key>拔线时显示充了多少</key>
 	<string>shows how much was added</string>
 	<key>按现在的速度，约 %@ 用完。</key>
 	<string>At this rate, about %@ left.</string>
-	<key>掉到多少再充</key>
-	<string>Resume At</string>
+	<key>换个网络对比，或开飞行模式再关</key>
+	<string>Compare on another network, or toggle Airplane Mode</string>
 	<key>接触不良</key>
 	<string>Loose Cable</string>
+	<key>推送服务</key>
+	<string>Push Notifications</string>
+	<key>推送重连</key>
+	<string>Push Reconnects</string>
+	<key>推送重连连续 3 小时超过每小时 15 次时标 ⚠️。</key>
+	<string>Push reconnects are marked ⚠️ when over 15 per hour for 3 hours in a row.</string>
 	<key>提示</key>
 	<string>Alerts</string>
 	<key>提示样式</key>
 	<string>Style</string>
-	<key>插上电源时询问</key>
-	<string>Ask When Plugged In</string>
 	<key>插电</key>
 	<string>Plug-in</string>
-	<key>插电时可选择本次充满，拔线后恢复上限。30 天未充满时提示充满一次，用于校准电量。</key>
-	<string>Choose a one-time full charge when plugging in; the limit returns after unplugging. If not fully charged for 30 days, a full charge is suggested to calibrate the battery reading.</string>
+	<key>插电时询问</key>
+	<string>Ask When Plugged In</string>
 	<key>插着充电器，功率却一直低于 5 W。
 • 换一根线或换个充电头试试
 • 手机太热时也会自动降速</key>
@@ -230,28 +312,82 @@ Banner: a card slides down from the top; swipe up or tap to close.</string>
 • The phone also slows charging when it's hot</string>
 	<key>插着电却不充</key>
 	<string>plugged in, not charging</string>
+	<key>改名</key>
+	<string>Rename</string>
+	<key>数据收集中</key>
+	<string>Collecting Data</string>
+	<key>数据来自系统电池记录，按小时汇总，约晚 1 小时。</key>
+	<string>From the system battery log, summed per hour, about an hour behind.</string>
+	<key>整机功耗 1 分钟平均高于设定值时停止给电池充电，由电源直接供电；低于设定值 1 W 后恢复。电量低于 20% 时不直充。推荐 4 W。</key>
+	<string>When the phone's 1-minute average power draw is above the set value, the battery stops charging and the charger powers the phone directly. Charging resumes 1 W below the set value. Not used below 20%. Recommended: 4 W.</string>
+	<key>无</key>
+	<string>None</string>
 	<key>无线</key>
 	<string>Wireless</string>
+	<key>无线局域网</key>
+	<string>Wi-Fi</string>
+	<key>日志</key>
+	<string>Log</string>
+	<key>时长</key>
+	<string>Duration</string>
+	<key>昨天</key>
+	<string>Yesterday</string>
 	<key>显示</key>
 	<string>Display</string>
+	<key>显示与触控</key>
+	<string>Display &amp; Touch</string>
 	<key>显示充电功率</key>
 	<string>shows charging power</string>
+	<key>显示全部</key>
+	<string>Show All</string>
+	<key>暂无数据</key>
+	<string>No Data</string>
+	<key>暂无记录</key>
+	<string>No Records Yet</string>
+	<key>最多：%@</key>
+	<string>Most: %@</string>
 	<key>最大功率</key>
 	<string>Max Power</string>
 	<key>最大容量低于 80%</key>
 	<string>Maximum Capacity Below 80%</string>
 	<key>最大容量（相对新电池）</key>
 	<string>Maximum Capacity (relative to new)</string>
+	<key>最近 24 小时</key>
+	<string>Last 24 hours</string>
+	<key>最近 24 小时 · 最多 %ld 次/时</key>
+	<string>Last 24 hours · up to %ld/h</string>
+	<key>最近 24 小时平均</key>
+	<string>Average over the last 24 hours</string>
+	<key>最近 24 小时没有整小时锁屏</key>
+	<string>No fully locked hours in the last 24 hours</string>
+	<key>最高功率</key>
+	<string>Peak Power</string>
+	<key>最高温度</key>
+	<string>Peak Temperature</string>
+	<key>有</key>
+	<string>Yes</string>
 	<key>有些设置要注销后才会完全恢复，现在注销吗？</key>
 	<string>Some settings only fully reset after a respring. Respring now?</string>
 	<key>有新版 %@</key>
 	<string>Update %@</string>
+	<key>有线</key>
+	<string>Wired</string>
+	<key>未开启</key>
+	<string>Off</string>
+	<key>未知充电器</key>
+	<string>Unknown Charger</string>
+	<key>未触发</key>
+	<string>Inactive</string>
+	<key>本次</key>
+	<string>This Charge</string>
 	<key>横幅</key>
 	<string>Banner</string>
 	<key>正在充电</key>
 	<string>Charging</string>
-	<key>比如上限 80%、选「上限 − 5%」：充到 80% 停，用到 75% 以下再插着线时才重新充。</key>
-	<string>E.g. with an 80% limit and "Limit − 5%", charging stops at 80% and starts again once it's below 75% while plugged in.</string>
+	<key>每周</key>
+	<string>Weekly</string>
+	<key>每小时查看一次系统电池记录；连续 3 个锁屏小时超过设定占比时提醒，同一个 App 每天最多一次。推荐 30%。</key>
+	<string>Checks the system battery log every hour and alerts when one app exceeds the set share for 3 locked hours in a row; at most once a day per app. Recommended: 30%.</string>
 	<key>注销</key>
 	<string>Respring</string>
 	<key>温度</key>
@@ -270,6 +406,8 @@ Banner: a card slides down from the top; swipe up or tap to close.</string>
 	<string>Version</string>
 	<key>状态</key>
 	<string>Status</string>
+	<key>现在</key>
+	<string>Now</string>
 	<key>现在耗电比平时快很多。</key>
 	<string>The battery is draining much faster than usual.</string>
 	<key>用电</key>
@@ -294,6 +432,14 @@ Banner: a card slides down from the top; swipe up or tap to close.</string>
 	<string>Current</string>
 	<key>电量</key>
 	<string>Level</string>
+	<key>电量 · 24 小时</key>
+	<string>Battery Level · 24 Hours</string>
+	<key>留空恢复默认名字。</key>
+	<string>Leave empty to use the default name.</string>
+	<key>直充</key>
+	<string>Bypass Charging</string>
+	<key>直充中</key>
+	<string>Bypassing</string>
 	<key>睡前</key>
 	<string>Bedtime</string>
 	<key>短条</key>
@@ -302,6 +448,10 @@ Banner: a card slides down from the top; swipe up or tap to close.</string>
 	<string>Respring (restart SpringBoard) now?</string>
 	<key>稍后</key>
 	<string>Later</string>
+	<key>系统</key>
+	<string>System</string>
+	<key>系统内核</key>
+	<string>System Kernel</string>
 	<key>约 %@ 充满</key>
 	<string>Full in about %@</string>
 	<key>约 %@ 到 %d%%</key>
@@ -310,22 +460,40 @@ Banner: a card slides down from the top; swipe up or tap to close.</string>
 	<string>About %@ left</string>
 	<key>约40分钟</key>
 	<string>~40 min</string>
+	<key>结束方式</key>
+	<string>Ended By</string>
+	<key>网络信号差、频繁切换</key>
+	<string>Poor signal or frequent network switching</string>
+	<key>网络唤醒</key>
+	<string>Network Wakes</string>
+	<key>网络服务</key>
+	<string>Network Services</string>
+	<key>网页 App</key>
+	<string>Web Apps</string>
 	<key>耗电很快</key>
 	<string>Draining Fast</string>
+	<key>耗电排查</key>
+	<string>Battery Drain</string>
+	<key>耗电排行</key>
+	<string>Usage by App</string>
 	<key>自动</key>
 	<string>Automatic</string>
 	<key>自动开关</key>
 	<string>Automation</string>
+	<key>蓝牙</key>
+	<string>Bluetooth</string>
+	<key>蜂窝网络</key>
+	<string>Cellular</string>
 	<key>规格</key>
 	<string>Output</string>
 	<key>解锁后恢复</key>
 	<string>restored on unlock</string>
+	<key>记录只保存在本机，保留 30 天。</key>
+	<string>Records stay on this iPhone for 30 days.</string>
 	<key>设定时间前充满</key>
 	<string>full by the set time</string>
 	<key>设计容量</key>
 	<string>Design Capacity</string>
-	<key>试试看</key>
-	<string>Try It</string>
 	<key>语言</key>
 	<string>Language</string>
 	<key>越狱环境</key>
@@ -340,24 +508,46 @@ Banner: a card slides down from the top; swipe up or tap to close.</string>
 「复制问题信息」会复制 xrhea 版本、iOS 版本、机型和改过的设置，可以贴进反馈里。</key>
 	<string>Source: https://oryanfang.github.io/repo/
 "Copy Debug Info" copies the xrhea and iOS versions, device model and changed settings for pasting into a report.</string>
-	<key>达到上限后停止充电，由电源直接供电；低于恢复线时恢复充电。</key>
-	<string>Charging stops at the limit and the charger powers the phone directly. Charging resumes below the resume level.</string>
+	<key>边充边玩停充时</key>
+	<string>battery paused under load</string>
+	<key>边充边玩直充</key>
+	<string>Bypass While Gaming</string>
+	<key>达到上限后停止充电，由电源直接供电；比上限低出回落值后恢复充电，避免在上限附近反复启停。推荐上限 80%、回落 5%。</key>
+	<string>Charging stops at the limit and the charger powers the phone directly. It resumes once the level drops below the limit by the margin, so it doesn't start and stop around the limit. Recommended: 80% limit, 5% margin.</string>
 	<key>过热</key>
 	<string>Hot</string>
 	<key>过热被限速</key>
 	<string>slowed by heat</string>
 	<key>这些数字怎么看</key>
 	<string>Understanding These Numbers</string>
+	<key>连续 3 小时超过每小时 15 次，偏多。</key>
+	<string>Over 15 per hour for 3 hours in a row: high.</string>
 	<key>适用系统</key>
 	<string>Supported iOS</string>
+	<key>通话</key>
+	<string>Calls</string>
+	<key>速度为 80% 前每分钟充入的电量，点按可改名。</key>
+	<string>Speed is the charge added per minute below 80%. Tap to rename.</string>
 	<key>重置</key>
 	<string>Reset</string>
 	<key>重置所有设置</key>
 	<string>Reset All Settings</string>
+	<key>锁定屏幕</key>
+	<string>Lock Screen</string>
+	<key>锁屏待机</key>
+	<string>Standby</string>
+	<key>锁屏掉电快</key>
+	<string>Fast Drain While Locked</string>
+	<key>锁屏时 · 最近 24 小时</key>
+	<string>While Locked · Last 24 Hours</string>
+	<key>锁屏时单个 App 占比过高</key>
+	<string>one app uses too much while locked</string>
 	<key>锁屏时开启</key>
 	<string>Turn On When Locked</string>
-	<key>锁屏时开启的低电量模式在解锁后关闭；电量低于设定值时保持开启。推荐低于 20% 开启、充到 80% 关闭。</key>
-	<string>Low Power Mode turned on at lock turns off on unlock; it stays on if the battery is below the set level. Recommended: on below 20%, off at 80%.</string>
+	<key>锁屏时开启的低电量模式在解锁后关闭，充电时开启的在拔线后关闭；电量低于设定值时保持开启。充电时开启可减少后台活动，充电更快、温度更低；系统充到 80% 时会自动关闭。推荐低于 20% 开启、充到 80% 关闭。</key>
+	<string>Low Power Mode turned on when locked turns off on unlock; turned on while charging, it turns off on unplug. It stays on below the set level. On while charging, background activity drops, so charging is faster and cooler; the system turns it off at 80%. Recommended: on below 20%, off at 80%.</string>
+	<key>锁屏时最多：%@</key>
+	<string>Most while locked: %@</string>
 	<key>锁屏每小时 &gt; 3%</key>
 	<string>locked, &gt; 3% per hour</string>
 	<key>长条</key>
@@ -366,15 +556,25 @@ Banner: a card slides down from the top; swipe up or tap to close.</string>
 	<string>Intermittent Charging</string>
 	<key>降速</key>
 	<string>Throttled</string>
+	<key>隔空投送与共享</key>
+	<string>AirDrop &amp; Sharing</string>
 	<key>需注销</key>
 	<string>Respring</string>
+	<key>音频</key>
+	<string>Audio</string>
+	<key>预览</key>
+	<string>Preview</string>
 	<key>预计</key>
 	<string>Estimate</string>
 	<key>频繁断开</key>
 	<string>keeps disconnecting</string>
 	<key>高温保护</key>
 	<string>Heat Protection</string>
+	<key>高温保护中</key>
+	<string>Heat Protection</string>
 	<key>高耗电</key>
 	<string>Drain</string>
+	<key>高负载时</key>
+	<string>under heavy load</string>
 </dict>
 </plist>

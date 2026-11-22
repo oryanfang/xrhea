@@ -28,6 +28,9 @@ static void XRHAddGestureBlock(UIGestureRecognizer *g, void (^block)(void)) {
 
 static const NSTimeInterval kXRHToastHold = 3.0;      // 展开后停留多久
 
+// 正在显示的这条点了打开哪一页（Root.plist 里那行的 id）：默认 battery（电池信息），每周小结是 log（日志）
+static NSString *gToastTapPath;
+
 // 点提示：打开「设置 › xrhea › 电池信息」（Root.plist 里这行 id = battery）。
 // SpringBoard 里 UIApplication openURL 不行；LSApplicationWorkspace openSensitiveURL 可以，但不能在主线程同步调（lsd 会回头找
 // SpringBoard，卡死），放后台线程。锁屏 / 灭屏时会失败（返回 NO），那就只是收起提示（2026-11-19 真机验证）
@@ -37,7 +40,7 @@ static void XRHToastOpenDetail(void) {
         id ws = ((id (*)(id, SEL))objc_msgSend)(NSClassFromString(@"LSApplicationWorkspace"), NSSelectorFromString(@"defaultWorkspace"));
         SEL sel = NSSelectorFromString(@"openSensitiveURL:withOptions:");
         if (![ws respondsToSelector:sel]) return;
-        BOOL ok = ((BOOL (*)(id, SEL, id, id))objc_msgSend)(ws, sel, [NSURL URLWithString:@"prefs:root=xrhea&path=battery"], nil);
+        BOOL ok = ((BOOL (*)(id, SEL, id, id))objc_msgSend)(ws, sel, [NSURL URLWithString:[@"prefs:root=xrhea&path=" stringByAppendingString:gToastTapPath ?: @"battery"]], nil);
         XRHDebugLog(@"[Toast] 点提示打开详情 ok=%d", ok);
     });
 }
@@ -526,6 +529,7 @@ static void XRHToastNext(void) {
     gToastWindow.rootViewController = nil;
     gToastWindow.hidden = NO;
     XRHToastKind kind = [item[0] integerValue];
+    gToastTapPath = item.count > 8 && item[8] != NSNull.null ? item[8] : nil;
     NSString *symbol = item[1] == NSNull.null ? nil : item[1];
     NSString *detail = item[3] == NSNull.null ? nil : item[3];
     BOOL island = XRHUseIslandStyle();
@@ -550,12 +554,17 @@ void XRHShowToast(XRHToastKind kind, NSString *symbol, NSString *title, NSString
 
 void XRHShowToastFull(XRHToastKind kind, NSString *symbol, NSString *title, NSString *detail, NSString *compact, NSString *compactDetail,
                       NSString *label, NSString *value) {
+    XRHShowToastOpening(kind, symbol, title, detail, compact, compactDetail, label, value, nil);
+}
+
+void XRHShowToastOpening(XRHToastKind kind, NSString *symbol, NSString *title, NSString *detail, NSString *compact, NSString *compactDetail,
+                         NSString *label, NSString *value, NSString *tapPath) {
     if (!title.length) return;
     dispatch_async(dispatch_get_main_queue(), ^{
         if (!gToastQueue) gToastQueue = [NSMutableArray array];
         if (gToastQueue.count >= 3) return;   // 一下子来太多就丢掉后面的
         [gToastQueue addObject:@[@(kind), symbol ?: (id)NSNull.null, title, detail ?: (id)NSNull.null, compact ?: (id)NSNull.null, compactDetail ?: (id)NSNull.null,
-                                  label ?: (id)NSNull.null, value ?: (id)NSNull.null]];
+                                  label ?: (id)NSNull.null, value ?: (id)NSNull.null, tapPath ?: (id)NSNull.null]];
         XRHToastNext();
     });
 }

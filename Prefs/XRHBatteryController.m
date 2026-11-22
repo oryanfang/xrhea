@@ -73,7 +73,7 @@ static int XRHLimitMax(void) {
 static BOOL XRHLimitHolding(void) {
     if (!XRHLimitOn() || !XRBatteryExternalConnected() || XRBatteryIsCharging()) return NO;
     NSDictionary *state = XRHStateFile();
-    return [state[@"inhibited"] boolValue] && ![state[@"thermalHot"] boolValue];
+    return [state[@"inhibited"] boolValue] && ![state[@"thermalHot"] boolValue] && ![state[@"bypassStop"] boolValue];
 }
 
 #pragma mark - 异常判断（标 ⚠️，点开给解决办法）
@@ -406,6 +406,9 @@ static NSString *XRHDuration(double minutes) {
     // 高温保护中（xrhead 写 thermalHot）：停充 / 间歇充电时不按电流估
     if (XRBatteryExternalConnected() && [XRHStateFile()[@"thermalHot"] boolValue])
         return XRHL(@"高温保护中");
+    // 边充边玩直充：电源直接供电，电池不充
+    if (XRBatteryExternalConnected() && [XRHStateFile()[@"bypassStop"] boolValue])
+        return XRHL(@"直充中");
     // 定时充满在等着（xrhead 算好了时间、还没开始充）：「5:40 开始充，7:00 前充满」
     if (XRBatteryExternalConnected() && XRHLimitOn()) {
         NSDictionary *state = XRHStateFile();

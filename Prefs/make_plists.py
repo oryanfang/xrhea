@@ -70,6 +70,8 @@ PAGES["Root"] = ("xrhea", [
     group(),
     # 电池信息：详情页是代码写的（XRHBatteryController），图标和右边的健康度在 XRHRootListController 里填
     {"cell": "PSLinkCell", "label": "电池信息", "detail": "XRHBatteryController", "xrhBatteryRow": True, "id": "battery"},   # id：prefs:root=xrhea&path=battery 直达（点提示打开详情用）
+    # 日志：页面是代码写的（Prefs/XRHLogController.m），充电记录由插件 Tweak/ChargeLog.m 写
+    {"cell": "PSLinkCell", "label": "日志", "detail": "XRHLogController", "xrhSymbol": "chart.xyaxis.line", "xrhSymbolColor": "blue", "id": "log"},   # id：每周小结点开直达
     # 充电上限：图标是代码画的橙底半亮闪电（XRHRootListController 的 XRHBoltHalfIcon）
     dict(link("充电上限", "ChargeLimit"), xrhDrawn="boltHalf"),
     # 优化：图标是代码画的紫底白色叶子（XRHRootListController 的 XRHLeafIcon）
@@ -86,40 +88,49 @@ PAGES["Root"] = ("xrhea", [
     # 注销在导航栏右上角（XRHRootListController -viewDidLoad）
 ])
 
-# 优化：高温保护在 xrhead（Daemon/main.m 的 XRHThermalTick）；自动低电量模式在 SpringBoard（Tweak/LowPower.m）
+# 优化：高温保护、边充边玩直充在 xrhead（Daemon/main.m 的 XRHThermalTick / XRHBypassTick）；
+# 后台耗电提醒：xrhead 每小时查系统电池记录（XRHDrainQuery），SpringBoard 弹（Tweak/Alerts.m 第 15 条）
 PAGES["Optimize"] = ("优化", [
+    # 最上面是状态行（XRHOptimizeStatusCell：未触发 / 高温保护 / 直充中）
+    group(),
+    {"cell": "PSStaticTextCell", "cellClass": "XRHOptimizeStatusCell", "label": "状态", "height": 52},
     # 数值都用滑块（默认 = 推荐值，页脚写推荐值），特殊需求自己拖
-    group("高温保护", "停充：达到温度后停止充电。间歇充电：停 3 分钟、充 3 分钟交替，平均电流约减半。低于设定温度 3℃ 后恢复。推荐 40℃。"),
+    group("充电保护", "停充：达到温度后停止充电。间歇充电：停 3 分钟、充 3 分钟交替，平均电流约减半。低于设定温度 3℃ 后恢复。无线充电发热更多，按单独的温度提前保护。推荐有线 40℃、无线 37℃。"),
     dict(switch("高温保护", "thermalGuard", False), xrhNote="充电时", height=52),
     dict(slider("温度", "thermalTemp", 40, 30, 50, "celsius", 2, requires="thermalGuard", step=1), height=52),
+    dict(slider("无线", "thermalTempWireless", 37, 30, 50, "celsius", 2, requires="thermalGuard", step=1), height=52),
     dict(choice("处理方式", "thermalMode", [0, 1], ["停充", "间歇充电"], 1, requires="thermalGuard"), height=52),
+    group("直充", "整机功耗 1 分钟平均高于设定值时停止给电池充电，由电源直接供电；低于设定值 1 W 后恢复。电量低于 20% 时不直充。推荐 4 W。"),
+    dict(switch("边充边玩直充", "bypassCharge", False), xrhNote="高负载时", height=52),
+    dict(slider("功耗", "bypassWatts", 4, 2, 10, "watts", 2, requires="bypassCharge", step=0.5), height=52),
+    group("后台", "每小时查看一次系统电池记录；连续 3 个锁屏小时超过设定占比时提醒，同一个 App 每天最多一次。推荐 30%。"),
+    dict(switch("后台耗电提醒", "bgDrainAlert", False), xrhNote="锁屏时单个 App 占比过高", height=52),
+    dict(slider("占比", "bgDrainShare", 30, 20, 60, "level", 2, requires="bgDrainAlert", step=5), height=52),
 ])
 
 # 低电量模式：自动开关在 SpringBoard（Tweak/LowPower.m）；保持高刷新率在 backboardd（Backboard/Tweak.x），开关由 SpringBoard 用 Darwin 通知状态值传过去
 PAGES["LowPower"] = ("低电量模式", [
-    group("自动开关", "锁屏时开启的低电量模式在解锁后关闭；电量低于设定值时保持开启。推荐低于 20% 开启、充到 80% 关闭。"),
+    group("自动开关", "锁屏时开启的低电量模式在解锁后关闭，充电时开启的在拔线后关闭；电量低于设定值时保持开启。充电时开启可减少后台活动，充电更快、温度更低；系统充到 80% 时会自动关闭。推荐低于 20% 开启、充到 80% 关闭。"),
     dict(switch("低电量时开启", "lpmBelowOn", False), xrhNote="低于设定电量时", height=52),
     dict(slider("电量", "lpmBelow", 20, 0, 100, "level", 2, requires="lpmBelowOn", step=5), height=52),
     dict(switch("充电后关闭", "lpmOffOn", False), xrhNote="充到设定电量时", height=52),
     dict(slider("电量", "lpmOffAt", 80, 0, 100, "level", 2, requires="lpmOffOn", step=5), height=52),
     dict(switch("锁屏时开启", "lpmLocked", False), xrhNote="解锁后恢复", height=52),
+    dict(switch("充电时开启", "lpmCharging", False), xrhNote="拔线后恢复", height=52),
     group("显示", "低电量模式下屏幕最高刷新率保持 120Hz，其他省电措施不变；滑动时耗电略增。仅限 ProMotion 机型。"),
     dict(switch("保持高刷新率", "lpmKeepHighRefresh", False), xrhNote="低电量模式下", height=52),
 ])
 
 PAGES["ChargeLimit"] = ("充电上限", [
-    # 每组的说明放在这一组下面（footer），不用空分组挂文字，免得飘在两组之间对不齐
-    group(None, "达到上限后停止充电，由电源直接供电；低于恢复线时恢复充电。"),
-    switch("启用充电上限", "chargeLimit", False),
-    choice("上限", "chargeLimitMax", [60, 70, 75, 80, 85, 90], ["60%", "70%", "75%", "80%", "85%", "90%"], 80,
-           requires="chargeLimit"),
-    choice("掉到多少再充", "chargeLimitGap", [3, 5, 10, 20], ["上限 − 3%", "上限 − 5%", "上限 − 10%", "上限 − 20%"], 5,
-           short=["−3%", "−5%", "−10%", "−20%"], requires="chargeLimit",
-           message="比如上限 80%、选「上限 − 5%」：充到 80% 停，用到 75% 以下再插着线时才重新充。"),
-    dict(group(None, "插电时可选择本次充满，拔线后恢复上限。30 天未充满时提示充满一次，用于校准电量。"), xrhRequires="chargeLimit"),
-    switch("插上电源时询问", "chargeLimitAsk", True, requires="chargeLimit"),
+    # 和「优化」页同一套写法：每组有组名、说明贴在组下（footer），数值用滑块（默认 = 推荐值）
+    group("上限", "达到上限后停止充电，由电源直接供电；比上限低出回落值后恢复充电，避免在上限附近反复启停。推荐上限 80%、回落 5%。"),
+    switch("充电上限", "chargeLimit", False),
+    dict(slider("上限", "chargeLimitMax", 80, 60, 90, "level", 2, requires="chargeLimit", step=5), height=52),
+    dict(slider("回落", "chargeLimitGap", 5, 3, 20, "level", 2, requires="chargeLimit", step=1), height=52),
+    dict(group("插电", "可选择本次充满，拔线后恢复上限。30 天未充满时提示充满一次，用于校准电量。"), xrhRequires="chargeLimit"),
+    dict(switch("插电时询问", "chargeLimitAsk", True, requires="chargeLimit"), xrhNote="上限或本次充满", height=52),
     # 定时充满（Daemon/main.m 的 XRHScheduleTick）：先停在上限，按记住的充电速度算好时间，充满时间前刚好充满
-    dict(group(None, "开始时间按充电器实测速度计算。"), xrhRequires="chargeLimit"),
+    dict(group("定时充满", "夜间先停在上限，按充电器实测速度计算开始时间，在设定时间前充满。"), xrhRequires="chargeLimit"),
     dict(switch("定时充满", "chargeSchedule", False, requires="chargeLimit"), xrhNote="设定时间前充满", height=52),
     _pref({"cell": "PSStaticTextCell", "cellClass": "XRHTimeCell", "label": "充满时间", "height": 52},
           "chargeScheduleTime", 7 * 60, False, "chargeLimit,chargeSchedule"),
@@ -128,7 +139,7 @@ PAGES["ChargeLimit"] = ("充电上限", [
 ])
 
 def alert(label, note, key, default, n):
-    # 提醒开关：短名字 + 灰色小字的条件（xrhNote）+ 右边一列青绿色「试试看」（xrhTry，XRHDecorateCell 画），行高 52 留点呼吸
+    # 提醒开关：短名字 + 灰色小字的条件（xrhNote）+ 右边一列青绿色「预览」（xrhTry，XRHDecorateCell 画），行高 52 留点呼吸
     return dict(switch(label, key, default), xrhNote=note, xrhTry=n, height=52)
 
 
@@ -138,19 +149,20 @@ PAGES["Toast"] = ("提示", [
            message="「自动」：有灵动岛用灵动岛，没有用横幅。\n「灵动岛」：从灵动岛左右展开，几秒后缩回去，点一下提前收起。\n「横幅」：从顶部滑下一张卡片，往上划或点一下收起。"),
     # 专注静默：点进去自己选哪几条照常弹（Focus 页）；点按跳转：同提醒开关，短名字 + 灰色小字
     dict(link("专注模式", "Focus"), xrhNote="勿扰时不弹", height=52),
-    dict(switch("点击提示", "toastTapOpen", True), xrhNote="打开电池详情", height=52),
+    dict(switch("点击提示", "toastTapOpen", True), xrhNote="打开相关页面", height=52),
     # 灵动岛长短：两张缩略图上下排，点哪张选哪张（XRHIslandStyleCell）。0 长条（同系统充电那条，默认）/ 1 短条（2/3 屏宽）
     group("灵动岛"),
     {"cell": "PSStaticTextCell", "cellClass": "XRHIslandStyleCell", "key": "islandStyle", "default": 0,
      "defaults": DOMAIN, "PostNotification": NOTIFY, "height": 160},
     # 提醒（Tweak/Alerts.m）：开关下面不放文字描述，保持简洁；名字写类别、条件放灰色小字。分「充电」「异常」「用电」三组；
-    # 名字只写类别，条件放灰色小字；「试试看」排成一列在开关左边，能点，用手机此刻的数据弹一次。前 5 个默认开，「高耗电」默认关
+    # 名字只写类别，条件放灰色小字；「预览」排成一列在开关左边，能点，用手机此刻的数据弹一次。前 5 个默认开，「高耗电」默认关
     group("充电"),
     alert("插电", "显示充电功率", "alertPlugIn", True, 1),
     alert("到点", "充到 %d%% 提醒", "alertTarget", False, 13),
     # 到点的电量：滑块 50～100%，一格 5%（直接拖着选，不用点进列表页）；打开「到点」才出现
     dict(slider("电量", "alertTargetLevel", 90, 50, 100, "level", 2, requires="alertTarget", step=5), height=52),
     alert("停充", "到上限时", "alertLimit", True, 2),
+    alert("直充", "边充边玩停充时", "alertBypass", True, 17),
     alert("充满", "充到 100% 时", "alertFull", True, 7),
     alert("总结", "拔线时显示充了多少", "alertUnplug", True, 5),
     group("异常"),
@@ -160,10 +172,11 @@ PAGES["Toast"] = ("提示", [
     alert("中断", "插着电却不充", "alertStopped", True, 14),
     alert("过热", "电池 ≥ 40 ℃", "alertHot", True, 4),
     alert("低温", "充电时 < 5 ℃", "alertCold", True, 11),
-    group("用电", "不要为了热闹而点亮每一个开关。"),
+    group("用电", "待机耗电、睡前、高耗电只在使用电池时判断。每周默认关闭。"),
     alert("待机耗电", "锁屏每小时 > 3%", "alertStandby", True, 9),
     alert("睡前", "22 点后电量 < 30%", "alertBedtime", True, 10),
     alert("高耗电", "功率 > 6 W", "alertDrain", False, 6),
+    alert("每周", "周一 9:00 小结", "alertWeekly", False, 16),
 ])
 
 def focus_allow(label, key, default=False):
@@ -175,13 +188,14 @@ PAGES["Focus"] = ("专注模式", [
     group(),
     dict(switch("专注时静默", "toastFocusQuiet", True), height=52),
     dict(group("照常提醒 · 充电"), xrhRequires="toastFocusQuiet"),
-    focus_allow("插电", "alertPlugIn"), focus_allow("到点", "alertTarget"), focus_allow("停充", "alertLimit"),
+    focus_allow("插电", "alertPlugIn"), focus_allow("到点", "alertTarget"), focus_allow("停充", "alertLimit"), focus_allow("直充", "alertBypass"),
     focus_allow("充满", "alertFull"), focus_allow("总结", "alertUnplug"),
     dict(group("照常提醒 · 异常"), xrhRequires="toastFocusQuiet"),
     focus_allow("慢充", "alertSlow"), focus_allow("降速", "alertThrottle"), focus_allow("接触不良", "alertFlaky"),
     focus_allow("中断", "alertStopped"), focus_allow("过热", "alertHot", True), focus_allow("低温", "alertCold", True),
     dict(group("照常提醒 · 用电"), xrhRequires="toastFocusQuiet"),
     focus_allow("待机耗电", "alertStandby"), focus_allow("睡前", "alertBedtime"), focus_allow("高耗电", "alertDrain"),
+    focus_allow("后台耗电", "bgDrainAlert"), focus_allow("每周", "alertWeekly"),
 ])
 
 PAGES["About"] = ("关于", [
@@ -220,11 +234,11 @@ EN = {
     # 提示
     "提示": "Alerts",
     "提示样式": "Style", "自动": "Automatic", "灵动岛": "Dynamic Island", "横幅": "Banner",
-    "试试看": "Try It",
+    "预览": "Preview",
     "「自动」：有灵动岛用灵动岛，没有用横幅。\n「灵动岛」：从灵动岛左右展开，几秒后缩回去，点一下提前收起。\n「横幅」：从顶部滑下一张卡片，往上划或点一下收起。":
         "Automatic: Dynamic Island if your phone has one, otherwise a banner.\nDynamic Island: expands out of the island and shrinks back after a few seconds; tap to close early.\nBanner: a card slides down from the top; swipe up or tap to close.",
     "充电": "Charging", "电池": "Battery", "插电": "Plug-in", "停充": "Paused", "慢充": "Slow", "总结": "Summary", "过热": "Hot", "高耗电": "Drain",
-    "专注模式": "Focus", "勿扰时不弹": "quiet during Focus", "点击提示": "Tap Alert", "打开电池详情": "opens battery details",
+    "专注模式": "Focus", "勿扰时不弹": "quiet during Focus", "点击提示": "Tap Alert", "打开相关页面": "opens the related page",
     "显示充电功率": "shows charging power", "充到 %d%% 提醒": "alert at %d%%", "到上限时": "at the limit", "充到 100% 时": "at 100%",
     "拔线时显示充了多少": "shows how much was added", "功率低于 5 W": "under 5 W", "过热被限速": "slowed by heat", "接触不良": "Loose Cable",
     "频繁断开": "keeps disconnecting", "插着电却不充": "plugged in, not charging", "电池 ≥ 40 ℃": "battery ≥ 40 °C",
@@ -232,8 +246,8 @@ EN = {
     "22 点后电量 < 30%": "< 30% after 10 PM", "功率 > 6 W": "above 6 W", "专注时静默": "Silence During Focus",
     "照常提醒 · 充电": "Still Alert · Charging", "照常提醒 · 异常": "Still Alert · Issues", "照常提醒 · 用电": "Still Alert · Usage",
     "灵动岛": "Dynamic Island", "长条": "Long", "短条": "Short", "正在充电": "Charging", "约40分钟": "~40 min", "点按跳转": "Tap to Open", "打开电池信息": "battery details",
-    "中断": "Stopped", "插着却不充": "plugged, not charging",
-    "不要为了热闹而点亮每一个开关。": "No need to light up every switch.",
+    "中断": "Stopped", "边充边玩停充时": "battery paused under load", "插着却不充": "plugged, not charging",
+    "待机耗电、睡前、高耗电只在使用电池时判断。每周默认关闭。": "Standby, Bedtime and High Drain only apply on battery. Weekly is off by default.",
     "%@ 开始充，%@ 前充满": "Charging from %@, full by %@", "定时充满": "Scheduled Full Charge", "设定时间前充满": "full by the set time", "开始时间按充电器实测速度计算。": "The start time is based on the measured speed of the charger.", "充满时间": "Full By",
     "到点": "Target", "充到 %d%%": "at %d%%", "电量": "Level", "异常": "Issues", "用电": "Usage",
     "接触": "Loose", "1 分钟断开 ≥ 3 次": "≥ 3 drops / min", "低温": "Cold", "充电 < 5 ℃": "charging < 5 °C",
@@ -319,8 +333,70 @@ EN = {
     "已复制": "Copied", "好": "OK", "重置": "Reset", "xrhea 的所有设置都会恢复默认。确定吗？": "All xrhea settings will be restored to defaults. Continue?",
     "已重置": "Reset Done", "有些设置要注销后才会完全恢复，现在注销吗？": "Some settings only fully reset after a respring. Respring now?",
     "稍后": "Later",
+    # 日志（XRHLogController.m）
+    "日志": "Log", "充电记录": "Charging History", "全部记录": "All Records", "暂无记录": "No Records Yet",
+    "记录只保存在本机，保留 30 天。": "Records stay on this iPhone for 30 days.",
+    "速度为 80% 前每分钟充入的电量，点按可改名。": "Speed is the charge added per minute below 80%. Tap to rename.",
+    "今天": "Today", "昨天": "Yesterday", "%ld 天前": "%ld days ago", "上次 %@": "Last %@", "%ld 次": "%ld times", "%@ 起": "Since %@",
+    "%@ 充电头": "%@ Charger", "%@ 无线": "%@ Wireless", "未知充电器": "Unknown Charger", "有线": "Wired", "%.1f%%/分": "%.1f%%/min",
+    "时长": "Duration", "充入": "Added", "平均功率": "Average Power", "最高功率": "Peak Power", "最高温度": "Peak Temperature",
+    "本次": "This Charge", "结束方式": "Ended By", "拔线": "Unplugged", "到上限停充": "Stopped at Limit", "开启": "On",
+    "电量 · 24 小时": "Battery Level · 24 Hours", "现在": "Now", "锁屏掉电快": "Fast Drain While Locked", "数据收集中": "Collecting Data",
+    # 耗电排查（XRHLogController.m）
+    "耗电排查": "Battery Drain", "耗电排行": "Usage by App", "锁屏待机": "Standby", "最近 24 小时平均": "Average over the last 24 hours", "%.1f%%/时": "%.1f%%/h", "锁屏时最多：%@": "Most while locked: %@", "最多：%@": "Most: %@", "锁屏时 · 最近 24 小时": "While Locked · Last 24 Hours", "全部 · 最近 24 小时": "All · Last 24 Hours", "只算屏幕关闭超过八成的整小时，共 %ld 小时。": "Counts only hours with the screen off over 80% of the time (%ld h).", "数据来自系统电池记录，按小时汇总，约晚 1 小时。": "From the system battery log, summed per hour, about an hour behind.", "最近 24 小时没有整小时锁屏": "No fully locked hours in the last 24 hours", "暂无数据": "No Data", "显示全部": "Show All", "系统": "System", "推送服务": "Push Notifications", "定位服务": "Location Services", "蓝牙": "Bluetooth", "音频": "Audio", "个人热点": "Personal Hotspot", "锁定屏幕": "Lock Screen", "主屏幕": "Home Screen", "显示与触控": "Display & Touch", "系统内核": "System Kernel", "蜂窝网络": "Cellular", "无线局域网": "Wi-Fi", "后台下载": "Background Downloads", "iCloud 同步": "iCloud Sync", "iCloud 备份": "iCloud Backup", "网络服务": "Network Services", "隔空投送与共享": "AirDrop & Sharing", "小组件": "Widgets", "媒体处理": "Media Processing", "网页 App": "Web Apps", "通话": "Calls", "Safari 网页视图": "Safari View",
+    # 优化（直充、后台耗电、状态行）
+    "停充：达到温度后停止充电。间歇充电：停 3 分钟、充 3 分钟交替，平均电流约减半。低于设定温度 3℃ 后恢复。无线充电发热更多，按单独的温度提前保护。推荐有线 40℃、无线 37℃。": "Stop Charging: stops once the temperature is reached. Intermittent Charging: alternates 3 minutes off and 3 minutes on, roughly halving the average current. Resumes 3 °C below the set temperature. Wireless charging runs hotter, so it uses its own, lower temperature. Recommended: 40 °C wired, 37 °C wireless.",
+    "充电保护": "Charging Protection",
+    "充电时开启": "Turn On While Charging",
+    "功耗": "Power",
+    "占比": "Share",
+    "后台": "Background",
+    "后台耗电提醒": "Background Drain Alert",
+    "拔线后恢复": "restored on unplug",
+    "整机功耗 1 分钟平均高于设定值时停止给电池充电，由电源直接供电；低于设定值 1 W 后恢复。电量低于 20% 时不直充。推荐 4 W。": "When the phone's 1-minute average power draw is above the set value, the battery stops charging and the charger powers the phone directly. Charging resumes 1 W below the set value. Not used below 20%. Recommended: 4 W.",
+    "每小时查看一次系统电池记录；连续 3 个锁屏小时超过设定占比时提醒，同一个 App 每天最多一次。推荐 30%。": "Checks the system battery log every hour and alerts when one app exceeds the set share for 3 locked hours in a row; at most once a day per app. Recommended: 30%.",
+    "直充": "Bypass Charging",
+    "边充边玩直充": "Bypass While Gaming",
+    "锁屏时单个 App 占比过高": "one app uses too much while locked",
+    "锁屏时开启的低电量模式在解锁后关闭，充电时开启的在拔线后关闭；电量低于设定值时保持开启。充电时开启可减少后台活动，充电更快、温度更低；系统充到 80% 时会自动关闭。推荐低于 20% 开启、充到 80% 关闭。": "Low Power Mode turned on when locked turns off on unlock; turned on while charging, it turns off on unplug. It stays on below the set level. On while charging, background activity drops, so charging is faster and cooler; the system turns it off at 80%. Recommended: on below 20%, off at 80%.",
+    "高负载时": "under heavy load",
+    "直充中": "Bypassing",
+    "未触发": "Inactive",
+    "未开启": "Off",
+    # 充电上限页（滑块版）
+    "达到上限后停止充电，由电源直接供电；比上限低出回落值后恢复充电，避免在上限附近反复启停。推荐上限 80%、回落 5%。": "Charging stops at the limit and the charger powers the phone directly. It resumes once the level drops below the limit by the margin, so it doesn't start and stop around the limit. Recommended: 80% limit, 5% margin.",
+    "回落": "Margin",
+    "插电时询问": "Ask When Plugged In",
+    "上限或本次充满": "limit or full this time",
+    "可选择本次充满，拔线后恢复上限。30 天未充满时提示充满一次，用于校准电量。": "Choose to charge fully this time; the limit returns after unplugging. If it hasn't reached 100% in 30 days, you'll be reminded to charge fully once to calibrate.",
+    "夜间先停在上限，按充电器实测速度计算开始时间，在设定时间前充满。": "Holds at the limit overnight, then starts in time to be full by the set time, based on the charger's measured speed.",
+    "导出": "Export", "导出失败": "Export Failed",
+    # 推送重连、每周小结
+    "后台耗电": "Background",
+    "周一 9:00 小结": "Monday 9:00 summary",
+    "每周": "Weekly",
+    "推送重连": "Push Reconnects",
+    "网络唤醒": "Network Wakes",
+    "最近 24 小时": "Last 24 hours",
+    "最近 24 小时 · 最多 %ld 次/时": "Last 24 hours · up to %ld/h",
+    "┄ %d 次/时": "┄ %d/h",
+    "可能的原因": "Possible Causes",
+    "代理或 VPN 断开推送长连接": "A proxy or VPN drops the push connection",
+    "把 push.apple.com、17.0.0.0/8 设为直连": "Route push.apple.com and 17.0.0.0/8 directly",
+    "网络信号差、频繁切换": "Poor signal or frequent network switching",
+    "换个网络对比，或开飞行模式再关": "Compare on another network, or toggle Airplane Mode",
+    "连续 3 小时超过每小时 15 次，偏多。": "Over 15 per hour for 3 hours in a row: high.",
+    "在正常范围内。": "Within the normal range.",
+    "平时每小时 5～10 次。每次重连都会唤醒手机并用网络重新握手，蜂窝网络下更耗电。": "Normally 5–10 per hour. Each reconnect wakes the phone and redoes the network handshake, which costs more on cellular.",
+    "推送重连连续 3 小时超过每小时 15 次时标 ⚠️。": "Push reconnects are marked ⚠️ when over 15 per hour for 3 hours in a row.",
+    "已触发": "Triggered", "有": "Yes", "无": "None", "改名": "Rename", "留空恢复默认名字。": "Leave empty to use the default name.",
 }
-CODE_STRINGS = ["%@ 开始充，%@ 前充满", "长条", "短条", "正在充电", "约40分钟", "试试看", "需注销", "注销", "确定要注销（重启 SpringBoard）吗？", "取消", "有新版 %@", "在 Sileo 中添加", "复制地址",
+CODE_STRINGS = ["推送重连", "网络唤醒", "最近 24 小时", "最近 24 小时 · 最多 %ld 次/时", "┄ %d 次/时", "可能的原因", "代理或 VPN 断开推送长连接", "把 push.apple.com、17.0.0.0/8 设为直连", "网络信号差、频繁切换", "换个网络对比，或开飞行模式再关", "连续 3 小时超过每小时 15 次，偏多。", "在正常范围内。", "平时每小时 5～10 次。每次重连都会唤醒手机并用网络重新握手，蜂窝网络下更耗电。", "推送重连连续 3 小时超过每小时 15 次时标 ⚠️。", "导出", "导出失败", "直充中", "未触发", "未开启", "高温保护中", "高温保护", "停充", "间歇充电", "耗电排查", "耗电排行", "锁屏待机", "最近 24 小时平均", "%.1f%%/时", "锁屏时最多：%@", "最多：%@", "锁屏时 · 最近 24 小时", "全部 · 最近 24 小时", "只算屏幕关闭超过八成的整小时，共 %ld 小时。", "数据来自系统电池记录，按小时汇总，约晚 1 小时。", "最近 24 小时没有整小时锁屏", "暂无数据", "显示全部", "系统", "推送服务", "定位服务", "蓝牙", "音频", "个人热点", "锁定屏幕", "主屏幕", "显示与触控", "系统内核", "蜂窝网络", "无线局域网", "后台下载", "iCloud 同步", "iCloud 备份", "网络服务", "隔空投送与共享", "小组件", "媒体处理", "网页 App", "通话", "Safari 网页视图", "电量 · 24 小时", "现在", "锁屏掉电快", "数据收集中", "充电", "日志", "充电记录", "全部记录", "暂无记录", "记录只保存在本机，保留 30 天。", "速度为 80% 前每分钟充入的电量，点按可改名。",
+                "今天", "昨天", "%ld 天前", "上次 %@", "%ld 次", "%@ 起", "%@ 充电头", "%@ 无线", "未知充电器", "有线", "%.1f%%/分",
+                "时长", "充入", "平均功率", "最高功率", "最高温度", "本次", "结束方式", "拔线", "到上限停充", "开启", "已触发", "有", "无",
+                "改名", "留空恢复默认名字。", "充满", "降速", "定时充满", "高温保护", "充电器", "电量", "功率", "状态", "无线", "正在充电",
+                "%ld 分", "%ld 小时", "%ld 小时 %ld 分", "取消", "好",
+"%@ 开始充，%@ 前充满", "长条", "短条", "正在充电", "约40分钟", "预览", "需注销", "注销", "确定要注销（重启 SpringBoard）吗？", "取消", "有新版 %@", "在 Sileo 中添加", "复制地址",
                 "已复制", "好", "重置", "xrhea 的所有设置都会恢复默认。确定吗？", "已重置",
                 "有些设置要注销后才会完全恢复，现在注销吗？", "稍后", "重置所有设置", "软件源",
                 # XRHBatteryController.m

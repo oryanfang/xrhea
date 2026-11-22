@@ -30,9 +30,9 @@ static NSString *const kXRHSourceURL = @"https://oryanfang.github.io/repo/";
 - (PSSpecifier *)specifierAtIndexPath:(NSIndexPath *)indexPath;
 @end
 
-#pragma mark - 名字后面的小标签（「需注销」「试试看」）
+#pragma mark - 名字后面的小标签（「需注销」「预览」）
 
-// 小胶囊标签：橙色「需注销」（只是提示）、青绿色「试试看」（能点，见下）
+// 小胶囊标签：橙色「需注销」（只是提示）、青绿色「预览」（能点，见下）
 static UIImage *XRHTagImage(NSString *text, UIColor *color, UIFont *font) {
     static NSMutableDictionary *cache;
     if (!cache) cache = [NSMutableDictionary dictionary];
@@ -52,7 +52,7 @@ static UIImage *XRHTagImage(NSString *text, UIColor *color, UIFont *font) {
     return image;
 }
 
-// 「试试看」按钮：放在开关左边、右对齐排成一列（不跟着名字长短跑），点一下 SpringBoard 用手机此刻的数据弹一次（Tweak/Alerts.m）
+// 「预览」按钮：放在开关左边、右对齐排成一列（不跟着名字长短跑），点一下 SpringBoard 用手机此刻的数据弹一次（Tweak/Alerts.m）
 @interface XRHTryButton : UIButton
 @property (nonatomic) NSInteger alert;   // 1…6
 @end
@@ -67,7 +67,7 @@ static UIImage *XRHTagImage(NSString *text, UIColor *color, UIFont *font) {
 @end
 
 // plist 里写 xrhRespring = true：名字后面跟橙色「需注销」（改完要注销才生效）。
-// 提醒开关写 xrhTry = 1…6、xrhNote = 条件：名字后面跟灰色小字的条件，开关左边一列青绿色「试试看」
+// 提醒开关写 xrhTry = 1…6、xrhNote = 条件：名字后面跟灰色小字的条件，开关左边一列青绿色「预览」
 static void XRHDecorateCell(UITableViewCell *cell, PSSpecifier *spec) {
     if (!cell.textLabel) return;
     NSInteger tryAlert = [[spec propertyForKey:@"xrhTry"] integerValue];
@@ -105,7 +105,7 @@ static void XRHDecorateCell(UITableViewCell *cell, PSSpecifier *spec) {
     if (tryAlert <= 0) return;
 
     if (!button) {
-        UIImage *tag = XRHTagImage(XRHL(@"试试看"), UIColor.systemTealColor, font);
+        UIImage *tag = XRHTagImage(XRHL(@"预览"), UIColor.systemTealColor, font);
         button = [XRHTryButton buttonWithType:UIButtonTypeCustom];
         [button setImage:tag forState:UIControlStateNormal];
         // 点按区域比标签大一圈，好按

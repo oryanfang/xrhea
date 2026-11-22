@@ -6,8 +6,8 @@
 
 // 充电上限（Daemon/main.m 的 xrhead 读这几个键；默认关）
 #define kXRHChargeLimit        @"chargeLimit"
-#define kXRHChargeLimitMax     @"chargeLimitMax"     // 上限 %，默认 80
-#define kXRHChargeLimitGap     @"chargeLimitGap"     // 掉多少再充，默认 5（80% 停、75% 再充）
+#define kXRHChargeLimitMax     @"chargeLimitMax"     // 上限 %，默认 80，滑块 60～90（5% 一格）
+#define kXRHChargeLimitGap     @"chargeLimitGap"     // 回落：比上限低多少再充，默认 5（80% 停、75% 再充），滑块 3～20
 #define kXRHChargeLimitAsk     @"chargeLimitAsk"     // 插上电源时弹窗问「确认 / 这次充满」，默认开
 #define kXRHChargeLimitFullOnce @"chargeLimitFullOnce" // 这次充满（插件写，拔线清掉；xrhead 读）
 
@@ -16,6 +16,24 @@
 
 // 记住的充电速度（插件写）：{充电头: {fast: 80% 前每分钟几 %, tail: 80% 后每分钟几 %}}，充电头按「27W」「无线15W」分
 #define XRH_RATES_FILE         @"/var/mobile/Library/Caches/com.xyrith.xrhea.rates.plist"
+
+// 充电记录（插件 Tweak/ChargeLog.m 写，设置页「日志」读）：{records: [记录…]}，旧的在前，保留 30 天、最多 300 条。
+// 正插着的这次单独存在 XRH_CHARGE_CURRENT_FILE（每变 1% 写一次，注销后接着记；拔线 1 分钟内没再插上就并进记录、删掉这个文件）。
+// 每条记录：start / end（Unix 秒）、l0 / l1（起止电量 %）、mah（充进去多少 mAh）、wAvg / wMax（平均 / 最高功率 W，充电头送进来的）、
+//          tMax（最高温度 ℃）、charger（充电头，和 XRH_RATES_FILE 的键一样：「27W」「无线15W」）、wireless、
+//          result：0 拔线 / 1 到上限停充 / 2 充满；limit / sched / heat / thr：停过上限 / 开着定时充满 / 高温保护介入过 / 系统因过热降速过；
+//          pts：[[距开始秒数, 电量, 功率W]…]（电量每变 1% 一笔）
+#define XRH_CHARGES_FILE       @"/var/mobile/Library/Caches/com.xyrith.xrhea.charges.plist"
+#define XRH_CHARGE_CURRENT_FILE @"/var/mobile/Library/Caches/com.xyrith.xrhea.charging.plist"
+// 电量曲线（xrhead 写，Daemon/main.m 的 XRHLevelSample）：{levels: [[Unix 秒, 电量 %, 标记]…]}，标记 1 接着电源 / 2 在充 / 4 灭屏；保留 7 天
+#define XRH_LEVELS_FILE        @"/var/mobile/Library/Caches/com.xyrith.xrhea.levels.plist"
+// 耗电排行（xrhead 读系统电池记录后写，Daemon/main.m 的 XRHDrainQuery）：{time, all: [[名字, 耗电]…], locked: […], lockedHours}
+#define XRH_DRAIN_FILE         @"/var/mobile/Library/Caches/com.xyrith.xrhea.drain.plist"
+#define XRH_DRAIN_ASK          "com.xyrith.xrhea/drain-refresh"    // 设置页 → xrhead：重新算
+#define XRH_DRAIN_DONE         "com.xyrith.xrhea/drain-updated"    // xrhead → 设置页：算完了
+// 每周小结（xrhead 的 XRHWeekQuery 写）：{mode: week / preview, from, to, charges, standby, top: [名字…], pushBadDays}
+#define XRH_WEEK_FILE          @"/var/mobile/Library/Caches/com.xyrith.xrhea.week.plist"
+#define kXRHChargerNames     @"chargerNames"       // 充电器改的名字（设置页「日志」写）：{充电头键: 名字}
 
 // 提示样式：0 自动（有灵动岛用灵动岛）/ 1 灵动岛 / 2 横幅
 #define kXRHToastStyle         @"toastStyle"
@@ -40,3 +58,6 @@
 #define kXRHAlertTarget        @"alertTarget"        // 到点（充到自己设的电量提醒，不停充），默认关
 #define kXRHAlertTargetLevel   @"alertTargetLevel"   // 到点的电量 %，默认 90
 #define kXRHAlertStopped       @"alertStopped"       // 中断（插着电却没在充，不是上限、不是充满）
+#define kXRHAlertWeekly        @"alertWeekly"        // 每周（周一 9:00 小结上一周，xrhead 算 XRH_WEEK_FILE），默认关
+#define kXRHAlertBypass        @"alertBypass"        // 直充（边充边玩直充开始时）
+#define kXRHAlertBgDrain       @"bgDrainAlert"       // 后台耗电（xrhead 每小时查系统电池记录，某个 App 连续 3 个锁屏小时占比过高），默认关；开关在「优化」页

@@ -1,4 +1,4 @@
-// 提醒：在 SpringBoard 里按条件判断，用 Toast.m 的提示弹出来。每条在「设置 › xrhea › 提示」里单独开关，后面的「试试看」
+// 提醒：在 SpringBoard 里按条件判断，用 Toast.m 的提示弹出来。每条在「设置 › xrhea › 提示」里单独开关，后面的「预览」
 // 用手机此刻的数据弹一次（XRHTryAlert）。显示的内容（灵动岛长条的左字右值、短条的短值、横幅的两行字）在各条的 XRHShowXxx 里。
 //
 //   充电  1 插电：插上后等电流稳了（最多 25 秒）、等插电弹窗关掉；显示充电头送进来的功率（同 USB 数显线），横幅带预计时间
@@ -6,6 +6,7 @@
 //           定时充满在等着时（xrhead 状态文件 schedFull > 0、还没开始充）改弹「定时充满 ｜ 7:00」
 //        13 到点（默认关）：充到自己设的电量（alertTargetLevel，默认 90%）提醒，不停充
 //         2 停充：充电上限停充了（xrhead 状态文件 inhibited 从 0 变 1），显示停下时的实际电量（可能比上限少 1%）
+//        17 直充：边充边玩直充开始时（xrhead 状态文件 bypass 从 0 变 1），显示整机功耗；恢复充电时不弹
 //         7 充满：没开上限、充到 100%（插上时已满不算）
 //         5 总结：拔线时，插了 ≥ 1 分钟、充了 ≥ 1%
 //   异常  3 慢充：插上 45 秒后，有线、在充、电量 < 80%，只跑 5 V 或功率连续 30 秒 < 5 W
@@ -17,6 +18,10 @@
 //   用电  9 待机耗电：锁屏 ≥ 半小时、期间没接过电源、掉 ≥ 3% 且每小时 > 3%，亮屏时弹
 //        10 睡前：22～2 点、没插线、电量 < 30%，每晚一次
 //         6 高耗电（默认关）：用电池、亮屏时 1 分钟平均功率 > 6 W
+//        15 后台耗电（默认关，开关在「优化」页）：xrhead 发 com.xyrith.xrhea/drain-alert（某个第三方 App 连续 3 个锁屏小时占锁屏耗电过多），
+//           亮屏时弹；同一个 App 每天最多一次
+//        16 每周（默认关）：周一 9:00 以后第一次亮屏时，让 xrhead 算上一周（week-ask → week-done），弹「上周：充电 12 次 · 待机 0.9%/时」，
+//           点开是「日志」页；每周一次（记在偏好 weeklyShown）。「预览」算最近 7 天
 // 不做：低电量（系统自己有）；健康度下降（容量一点点往下掉是正常老化，频繁提醒只会让人焦虑）。
 //
 // 防打扰：同一种 30 分钟内只弹一次；插电、停充、慢充、降速、充满、到点、中断每次插拔最多一次。
@@ -30,10 +35,10 @@ static const NSTimeInterval kXRHAlertCooldown = 30 * 60;   // 同一种提醒的
 static const double kXRHHotWarn = 40, kXRHHotSevere = 45, kXRHHotRearm = 38;
 static const double kXRHSlowWatts = 5, kXRHDrainWatts = 6;
 
-// 顺序 = 设置页「试试看」的编号 - 1（com.xyrith.xrhea/try-alert-1 … -14），新的只往后加
+// 顺序 = 设置页「预览」的编号 - 1（com.xyrith.xrhea/try-alert-1 … -14），新的只往后加
 typedef NS_ENUM(NSInteger, XRHAlert) { XRHAlertPlugIn, XRHAlertLimit, XRHAlertSlow, XRHAlertHot, XRHAlertUnplug, XRHAlertDrain,
                                        XRHAlertFull, XRHAlertThrottle, XRHAlertStandby,
-                                       XRHAlertBedtime, XRHAlertCold, XRHAlertFlaky, XRHAlertTarget, XRHAlertStopped, XRHAlertCount };
+                                       XRHAlertBedtime, XRHAlertCold, XRHAlertFlaky, XRHAlertTarget, XRHAlertStopped, XRHAlertBgDrain, XRHAlertWeekly, XRHAlertBypass, XRHAlertCount };
 
 static NSTimeInterval gLastShown[XRHAlertCount];
 static dispatch_source_t gTimer;
@@ -49,12 +54,12 @@ static BOOL gWasInhibited;                      // 上一次读到的「已停�
 static NSMutableArray<NSNumber *> *gWatts;      // 最近几次的功率（接电源时判断充电慢，用电池时判断耗电快）
 static NSMutableArray<NSNumber *> *gAmps;       // 最近几次的电流（耗电快时估还能用多久）
 static int gHotLevel;                           // 0 正常 / 1 已弹过偏热 / 2 已弹过过热
-static double gLastGained = NAN, gLastMinutes = NAN, gLastLevel = NAN;   // 上次拔线的总结（「试试看」没插着线时用）
+static double gLastGained = NAN, gLastMinutes = NAN, gLastLevel = NAN;   // 上次拔线的总结（「预览」没插着线时用）
 static double gThermalBase = NAN;               // 7 降速：ChargerData.TimeChargingThermallyLimited 上次读到的值（涨了 = 正在因过热限流）
 static double gBlankLevel = NAN;                // 9 待机：灭屏时的电量
 static NSTimeInterval gBlankTime;               //        灭屏时间（0 = 没在记）
 static BOOL gBlankPlugged;                      //        这段锁屏期间接过电源（接过就不算）
-static double gLastStandbyDrop = NAN, gLastStandbyHours = NAN;   // 上次锁屏的掉电记录（「试试看」用）
+static double gLastStandbyDrop = NAN, gLastStandbyHours = NAN;   // 上次锁屏的掉电记录（「预览」用）
 static const double kXRHStandbyRate = 3;        // 每小时掉多少 % 算快
 static NSString *gBedtimeNight;                 // 10 睡前：已经提醒过的那一晚（yyyy-MM-dd，0～2 点算前一天）
 static const double kXRHBedtimeLevel = 30, kXRHColdWarn = 5, kXRHColdRearm = 8;
@@ -72,13 +77,13 @@ static NSTimeInterval gFastT0, gFastT1, gTailT0, gTailT1;
 static NSString *XRHAlertKey(XRHAlert a);
 
 static BOOL XRHAlertOn(XRHAlert a) {
-    return [[XRHPrefs shared] boolForKey:XRHAlertKey(a) fallback:a != XRHAlertDrain && a != XRHAlertTarget];
+    return [[XRHPrefs shared] boolForKey:XRHAlertKey(a) fallback:a != XRHAlertDrain && a != XRHAlertTarget && a != XRHAlertBgDrain && a != XRHAlertWeekly];
 }
 
 static NSString *XRHAlertKey(XRHAlert a) {
     static NSString *keys[XRHAlertCount] = { kXRHAlertPlugIn, kXRHAlertLimit, kXRHAlertSlow, kXRHAlertHot, kXRHAlertUnplug, kXRHAlertDrain,
                                              kXRHAlertFull, kXRHAlertThrottle, kXRHAlertStandby,
-                                             kXRHAlertBedtime, kXRHAlertCold, kXRHAlertFlaky, kXRHAlertTarget, kXRHAlertStopped };
+                                             kXRHAlertBedtime, kXRHAlertCold, kXRHAlertFlaky, kXRHAlertTarget, kXRHAlertStopped, kXRHAlertBgDrain, kXRHAlertWeekly, kXRHAlertBypass };
     return keys[a];
 }
 
@@ -233,6 +238,16 @@ static void XRHShowThermalGuard(double temp) {
                  XRHText(@"高温保护", @"Heat Protection"), t);
 }
 
+// 边充边玩直充进入时（xrhead 写 bypass）；watts = 充电头送进来的功率，这时基本就是整机功耗
+static void XRHShowBypass(double watts) {
+    NSString *w = isnan(watts) ? @"—" : [NSString stringWithFormat:@"%.0fW", MAX(watts, 1)];
+    XRHShowToastFull(XRHToastInfo, @"powerplug",
+                 XRHText(@"边充边玩直充", @"Bypass While Gaming"),
+                 XRHText(@"功耗高，暂停给电池充电，由电源直接供电", @"High load: battery charging paused, running on the charger"),
+                 w, XRHText(@"直充", @"Bypass"),
+                 XRHText(@"直充，暂停给电池充电", @"Bypass, Battery Paused"), w);
+}
+
 static void XRHShowUnplug(double level, double gained, double minutes) {
     XRHShowToastFull(XRHToastInfo, @"powerplug.fill",
                  [NSString stringWithFormat:XRHText(@"这次充了 %.0f%%", @"Charged %.0f%%"), gained],
@@ -320,6 +335,49 @@ static NSString *XRHBedtimeNight(void) {
     return [f stringFromDate:day];
 }
 
+// bundle ID → 装着的 App 的名字（系统语言）；不是装着的 App（系统服务等）返回 nil
+static NSString *XRHInstalledAppName(NSString *bundleID) {
+    Class cls = NSClassFromString(@"LSApplicationProxy");
+    if (!cls || ![bundleID isKindOfClass:NSString.class] || ![bundleID containsString:@"."]) return nil;
+    id proxy = ((id (*)(id, SEL, id))objc_msgSend)(cls, NSSelectorFromString(@"applicationProxyForIdentifier:"), bundleID);
+    id state = [proxy respondsToSelector:NSSelectorFromString(@"appState")] ? [proxy valueForKey:@"appState"] : nil;
+    if (![state respondsToSelector:NSSelectorFromString(@"isInstalled")] || ![[state valueForKey:@"installed"] boolValue]) return nil;
+    NSString *name = [proxy valueForKey:@"localizedName"];
+    return name.length ? name : nil;
+}
+
+// 15 后台耗电：name 是 bundle ID，显示 App 的名字（认不出来就显示 bundle ID）
+static NSString *XRHAppName(NSString *bundleID) {
+    return XRHInstalledAppName(bundleID) ?: bundleID;
+}
+
+static void XRHShowBgDrain(NSString *app, double share) {
+    NSString *pct = [NSString stringWithFormat:@"%.0f%%", share * 100];
+    XRHShowToastFull(XRHToastWarning, @"moon.zzz",
+                     [NSString stringWithFormat:XRHText(@"%@ 后台耗电多", @"%@ Drains in Background"), app],
+                     [NSString stringWithFormat:XRHText(@"锁屏时占耗电的 %@。可关闭它的后台 App 刷新，或把定位改成「使用 App 期间」", @"%@ of standby drain. Turn off its Background App Refresh, or set Location to While Using"), pct],
+                     pct, app, XRHText(@"后台耗电", @"Background Drain"), pct);
+}
+
+// 16 每周小结：xrhead 算好的 week.plist
+static void XRHShowWeekly(NSDictionary *w, BOOL preview) {
+    int charges = [w[@"charges"] intValue], bad = [w[@"pushBadDays"] intValue];
+    NSString *when = preview ? XRHText(@"最近 7 天", @"Last 7 Days") : XRHText(@"上周", @"Last Week");
+    NSMutableString *title = [NSMutableString stringWithFormat:XRHText(@"%@：充电 %d 次", @"%@: %d charges"), when, charges];
+    if (w[@"standby"]) [title appendFormat:XRHText(@" · 待机 %.1f%%/时", @" · standby %.1f%%/h"), [w[@"standby"] doubleValue]];
+    // 耗电最多：第一个是 App 的（系统服务不算）
+    NSString *top = nil;
+    for (NSString *n in w[@"top"]) if ((top = XRHInstalledAppName(n))) break;
+    NSMutableArray *parts = [NSMutableArray array];
+    if (top) [parts addObject:[NSString stringWithFormat:XRHText(@"耗电最多：%@", @"Top: %@"), top]];
+    if (bad > 0) [parts addObject:[NSString stringWithFormat:XRHText(@"推送重连偏多 %d 天", @"frequent push reconnects on %d days"), bad]];
+    NSString *count = [NSString stringWithFormat:XRHText(@"%d 次", @"%d"), charges];
+    XRHShowToastOpening(XRHToastInfo, @"calendar", title,
+                        parts.count ? [parts componentsJoinedByString:@" · "] : XRHText(@"数据还在收集中", @"Still collecting data"),
+                        count, when, preview ? when : XRHText(@"上周小结", @"Weekly Summary"),
+                        [NSString stringWithFormat:XRHText(@"充电 %d 次", @"%d charges"), charges], @"log");
+}
+
 static void XRHShowStopped(double level) {
     XRHShowToastFull(XRHToastWarning, @"powerplug",
                  XRHText(@"插着电但没在充", @"Plugged In, Not Charging"),
@@ -338,7 +396,7 @@ static BOOL XRHLooksStopped(double level, int *reason) {
     if (XRHLimitActive()) {
         if (XRHLimitInhibited()) return NO;
     }
-    if (XRHThermalHot()) return NO;   // 高温保护停的
+    if (XRHThermalHot() || XRHBypassActive()) return NO;   // 高温保护、边充边玩直充停的
     return r != 0;
 }
 
@@ -358,7 +416,7 @@ static void XRHShowScheduled(double start, double full, int max) {
                      XRHText(@"定时充满", @"Full by"), fullAt);
 }
 
-// 定时充满在等着就弹「定时充满」并返回 YES（插电提醒和「试试看」共用）
+// 定时充满在等着就弹「定时充满」并返回 YES（插电提醒和「预览」共用）
 static BOOL XRHShowScheduledIfWaiting(void) {
     NSDictionary *state = XRHLimitState();
     double schedStart = [state[@"schedStart"] doubleValue], schedFull = [state[@"schedFull"] doubleValue];
@@ -508,6 +566,8 @@ static void XRHCheckHot(double temp) {
     XRHShowHot(temp, level == 2);
 }
 
+static void XRHWeeklyCheck(void);
+
 static void XRHAlertTick(void) {
     if (XRHScreenBlanked()) {
         // 灭屏时不读；把旧读数清掉，亮屏后重新攒，免得「1 分钟平均」里混着灭屏前的数
@@ -523,10 +583,19 @@ static void XRHAlertTick(void) {
         XRHShowThermalGuard(XRBatteryTemperature());
     }
     wasThermal = thermal;
+    // 17 直充：边充边玩直充进入时弹（xrhead 写 bypass）；走普通提醒的开关、冷却和专注静默，30 分钟内只弹一次，免得功耗在门槛附近来回切时一直弹
+    static BOOL wasBypass;
+    BOOL bypass = XRHBypassActive();
+    if (bypass && !wasBypass && XRHAlertTake(XRHAlertBypass, NO)) {
+        XRHDebugLog(@"[Alert] 直充 %.1fW", XRBatteryInputWatts());
+        XRHShowBypass(XRBatteryInputWatts());
+    }
+    wasBypass = bypass;
 
     BOOL anyOn = NO;
     for (int i = 0; i < XRHAlertCount; i++) anyOn |= XRHAlertOn(i);
     if (!anyOn) return;
+    XRHWeeklyCheck();
 
     if (!thermal) XRHCheckHot(XRBatteryTemperature());   // 保护中不再弹「偏热」
     double watts = XRBatteryPowerWatts(), level = XRBatteryLevel();   // 接电源时是充电头送进来的总功率（同数显线）
@@ -663,6 +732,87 @@ static void XRHAlertPowerChanged(void) {
     gPlugLevel = NAN;
 }
 
+#pragma mark - 16 每周小结：周一 9:00 以后第一次亮屏时弹
+
+static BOOL gWeekWanted, gWeekPreview;   // 在等 xrhead 算上一周 / 算最近 7 天（「预览」）
+
+// 这周一 9:00（本地时间）。亮屏时每次读数都会问，算一次缓存 10 分钟（跨周、改时区最多晚 10 分钟发现）
+static double XRHWeeklyDue(void) {
+    static double due, computedAt;
+    double now = NSDate.date.timeIntervalSince1970;
+    if (due > 0 && now - computedAt < 600) return due;
+    NSCalendar *cal = [[NSCalendar alloc] initWithCalendarIdentifier:NSCalendarIdentifierGregorian];
+    cal.firstWeekday = 2;
+    NSDate *start = nil;
+    [cal rangeOfUnit:NSCalendarUnitWeekOfYear startDate:&start interval:NULL forDate:NSDate.date];
+    due = start.timeIntervalSince1970 + 9 * 3600;
+    computedAt = now;
+    return due;
+}
+
+// 亮屏时每次读数都看一眼（只读偏好，很轻）；到点了、这周还没弹过，就让 xrhead 算（5 分钟最多问一次）
+static void XRHWeeklyCheck(void) {
+    if (!XRHAlertOn(XRHAlertWeekly) || XRHScreenBlanked()) return;
+    double now = NSDate.date.timeIntervalSince1970, due = XRHWeeklyDue();
+    if (now < due || [[XRHPrefs shared] doubleForKey:@"weeklyShown" fallback:0] >= due) return;
+    static double asked;
+    if (now - asked < 300) return;
+    asked = now;
+    gWeekWanted = YES;
+    notify_post("com.xyrith.xrhea/week-ask");
+}
+
+static void XRHWeekDone(void) {
+    NSDictionary *w = [NSDictionary dictionaryWithContentsOfFile:XRH_WEEK_FILE];
+    if (![w isKindOfClass:NSDictionary.class]) return;
+    if ([w[@"mode"] isEqual:@"preview"]) {
+        if (gWeekPreview) { gWeekPreview = NO; XRHShowWeekly(w, YES); }
+        return;
+    }
+    if (!gWeekWanted || XRHScreenBlanked()) return;
+    gWeekWanted = NO;
+    if (!XRHAlertTake(XRHAlertWeekly, NO)) return;   // 专注模式挡掉的：不算弹过，下次亮屏再来
+    XRHWritePref(@"weeklyShown", @(XRHWeeklyDue()));
+    XRHDebugLog(@"[Alert] 每周小结 %@", w);
+    XRHShowWeekly(w, NO);
+}
+
+#pragma mark - 15 后台耗电：xrhead 查到有 App 锁屏时耗电过多，亮屏时弹
+
+static NSDictionary *gBgDrainPending;   // 等亮屏再弹的那条（drain.plist 的 alert）
+
+static void XRHBgDrainShowPending(void) {
+    if (!gBgDrainPending || XRHScreenBlanked()) return;
+    NSDictionary *a = gBgDrainPending;
+    gBgDrainPending = nil;
+    NSString *name = a[@"name"];
+    if (![name isKindOfClass:NSString.class]) return;
+    // 同一个 App 每天最多一次（记在偏好 bgDrainShown 里，注销后也算数）
+    NSDateFormatter *f = [NSDateFormatter new];
+    f.dateFormat = @"yyyy-MM-dd";
+    NSString *today = [f stringFromDate:NSDate.date];
+    NSDictionary *shown = [[XRHPrefs shared] objectForKey:@"bgDrainShown"];
+    if ([shown isKindOfClass:NSDictionary.class] && [shown[name] isEqual:today]) return;
+    if (!XRHAlertTake(XRHAlertBgDrain, NO)) return;
+    NSMutableDictionary *m = [NSMutableDictionary dictionary];
+    if ([shown isKindOfClass:NSDictionary.class]) [shown enumerateKeysAndObjectsUsingBlock:^(id k, id v, BOOL *stop) { if ([v isEqual:today]) m[k] = v; }];
+    m[name] = today;
+    XRHWritePref(@"bgDrainShown", m);
+    double share = [a[@"share"] doubleValue];
+    XRHDebugLog(@"[Alert] 后台耗电 %@ %.0f%%", name, share * 100);
+    // 和「待机耗电」错开，亮屏时两条可能一起来
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(4 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+        XRHShowBgDrain(XRHAppName(name), share);
+    });
+}
+
+static void XRHBgDrainArrived(void) {
+    NSDictionary *a = [NSDictionary dictionaryWithContentsOfFile:XRH_DRAIN_FILE][@"alert"];
+    if (![a isKindOfClass:NSDictionary.class]) return;
+    gBgDrainPending = a;
+    XRHBgDrainShowPending();
+}
+
 #pragma mark - 待机掉电：灭屏记电量，亮屏算这段掉了多少
 
 static void XRHScreenChanged(void) {
@@ -672,6 +822,8 @@ static void XRHScreenChanged(void) {
         gBlankPlugged = gConnected;
         return;
     }
+    XRHBgDrainShowPending();
+    XRHWeeklyCheck();
     if (gBlankTime <= 0) return;
     double hours = (CFAbsoluteTimeGetCurrent() - gBlankTime) / 3600, level = XRBatteryLevel();
     double drop = gBlankLevel - level;
@@ -687,7 +839,7 @@ static void XRHScreenChanged(void) {
     });
 }
 
-#pragma mark - 设置页「试试看」：用手机此刻的真实数据弹一次（条件没满足也弹，说明现在是什么情况）
+#pragma mark - 设置页「预览」：用手机此刻的真实数据弹一次（条件没满足也弹，说明现在是什么情况）
 
 static NSString *XRHWattsText(double w) {
     return isnan(w) || w <= 0 ? @"—" : [NSString stringWithFormat:w < 10 ? @"%.1fW" : @"%.0fW", w];
@@ -699,7 +851,7 @@ static void XRHTryAlert(int n) {
     double level = XRBatteryLevel(), full = XRBatteryFullCapacity(), amps = XRBatteryAmperage();
     NSString *levelText = isnan(level) ? @"—" : [NSString stringWithFormat:@"%.0f%%", level];
     NSString *notPlugged = XRHText(@"未接电源", @"Unplugged");
-    XRHDebugLog(@"[Alert] 试试看 %d connected=%d level=%.0f amps=%.0f focus=%d", n, connected, level, amps, XRHFocusActive());
+    XRHDebugLog(@"[Alert] 预览 %d connected=%d level=%.0f amps=%.0f focus=%d", n, connected, level, amps, XRHFocusActive());
     switch (n) {
         case 1: {   // 插上电源
             if (!connected) {
@@ -848,6 +1000,22 @@ static void XRHTryAlert(int n) {
                          levelText, [NSString stringWithFormat:XRHText(@"到%d%%", @"at %d%%"), target]);
             return;
         }
+        case 17: {   // 直充
+            if (XRHBypassActive()) { XRHShowBypass(XRBatteryInputWatts()); return; }
+            BOOL on = [[XRHPrefs shared] boolForKey:@"bypassCharge" fallback:NO];
+            double limit = [[XRHPrefs shared] doubleForKey:@"bypassWatts" fallback:4];
+            NSString *lim = [NSString stringWithFormat:@"%gW", limit];
+            XRHShowToast(XRHToastInfo, @"powerplug",
+                         on ? [NSString stringWithFormat:XRHText(@"功耗高于 %@ 时直充", @"Bypass above %@"), lim] : XRHText(@"边充边玩直充没有开启", @"Bypass While Gaming is off"),
+                         on ? XRHText(@"插着电时，整机功耗 1 分钟平均超过设定值才会直充", @"Starts when the 1-minute average load while plugged in exceeds the setting")
+                            : XRHText(@"在「优化」页开启", @"Turn it on in Optimization"),
+                         on ? lim : @"—", on ? XRHText(@"未直充", @"Not active") : XRHText(@"未开启", @"Off"));
+            return;
+        }
+        case 16:    // 每周小结：让 xrhead 算最近 7 天，算好了 XRHWeekDone 弹
+            gWeekPreview = YES;
+            notify_post("com.xyrith.xrhea/week-preview");
+            return;
         case 14: {   // 中断
             if (!connected) {
                 XRHShowToast(XRHToastInfo, @"powerplug", notPlugged, XRHText(@"插着电时才会判断", @"Checked only while plugged in"), @"—", notPlugged);
@@ -855,7 +1023,7 @@ static void XRHTryAlert(int n) {
             }
             int reason = 0;
             if (XRHLooksStopped(level, &reason)) { XRHShowStopped(level); return; }
-            XRHDebugLog(@"[Alert] 试试看 中断 NotChargingReason=%d charging=%d", reason, XRBatteryIsCharging());
+            XRHDebugLog(@"[Alert] 预览 中断 NotChargingReason=%d charging=%d", reason, XRBatteryIsCharging());
             XRHShowToast(XRHToastInfo, @"powerplug", [NSString stringWithFormat:XRHText(@"电量 %@", @"Battery %@"), levelText],
                          XRBatteryIsCharging() ? XRHText(@"正在充电，连接正常", @"Charging normally") : XRHText(@"没在充，但属于正常情况（上限 / 充满）", @"Not charging, as expected (limit / full)"),
                          levelText, XRBatteryIsCharging() ? XRHText(@"充电中", @"Charging") : XRHText(@"正常", @"Normal"));
@@ -893,7 +1061,12 @@ void XRHInitAlerts(void) {
     [NSNotificationCenter.defaultCenter addObserverForName:UIDeviceBatteryStateDidChangeNotification object:nil
                                                      queue:NSOperationQueue.mainQueue usingBlock:^(NSNotification *n) { XRHAlertPowerChanged(); }];
 
-    // 设置页每条提醒后面的「试试看」：com.xyrith.xrhea/try-alert-1 … -9
+    // 16 每周小结：xrhead 算好了
+    notify_register_dispatch("com.xyrith.xrhea/week-done", &token, dispatch_get_main_queue(), ^(int t) { XRHWeekDone(); });
+    // 15 后台耗电：xrhead 每小时查一次，查到了发这个
+    notify_register_dispatch("com.xyrith.xrhea/drain-alert", &token, dispatch_get_main_queue(), ^(int t) { XRHBgDrainArrived(); });
+
+    // 设置页每条提醒后面的「预览」：com.xyrith.xrhea/try-alert-1 … -9
     for (int n = 1; n <= XRHAlertCount; n++) {
         notify_register_dispatch([NSString stringWithFormat:@"com.xyrith.xrhea/try-alert-%d", n].UTF8String, &token,
                                  dispatch_get_main_queue(), ^(int t) { XRHTryAlert(n); });

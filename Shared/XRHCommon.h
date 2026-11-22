@@ -74,6 +74,7 @@ NSDictionary *XRHLimitState(void);
 // 现在是不是 xrhead 停的充
 BOOL XRHLimitInhibited(void);
 BOOL XRHThermalHot(void);
+BOOL XRHBypassActive(void);
 
 #pragma mark - 改设置后立即刷新
 
@@ -88,6 +89,7 @@ void XRHInitChargePrompt(void);   // 插上电源时的充电上限弹窗（Char
 void XRHInitLowPower(void);       // 低电量模式（LowPower.m）：自动开关
 void XRHSyncHighRefresh(void);    // 低电量模式下保持高刷新率的开关传给 backboardd（LowPower.m）
 void XRHInitAlerts(void);         // 提醒（Alerts.m）：插电、到上限、充电慢、偏热、拔线总结、耗电快
+void XRHInitChargeLog(void);      // 充电记录（ChargeLog.m）：每次插拔记一条，设置页「日志」显示
 BOOL XRHChargePromptShowing(void);
 
 #pragma mark - 提示（Toast.m）
@@ -101,6 +103,9 @@ void XRHShowToast(XRHToastKind kind, NSString *symbol, NSString *title, NSString
 // XRHShowToast 不带这两样时：左边用 title，右边用 compact（title 里已经有 compact 就用 compactDetail，免得重复）
 void XRHShowToastFull(XRHToastKind kind, NSString *symbol, NSString *title, NSString *detail, NSString *compact, NSString *compactDetail,
                       NSString *label, NSString *value);
+// 同上，点提示打开的不是「电池信息」而是 tapPath 那一页（Root.plist 里那行的 id，比如 log）
+void XRHShowToastOpening(XRHToastKind kind, NSString *symbol, NSString *title, NSString *detail, NSString *compact, NSString *compactDetail,
+                         NSString *label, NSString *value, NSString *tapPath);
 BOOL XRHHasDynamicIsland(void);
 
 #pragma mark - 文字

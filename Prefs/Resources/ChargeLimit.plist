@@ -8,7 +8,9 @@
 			<key>cell</key>
 			<string>PSGroupCell</string>
 			<key>footerText</key>
-			<string>达到上限后停止充电，由电源直接供电；低于恢复线时恢复充电。</string>
+			<string>达到上限后停止充电，由电源直接供电；比上限低出回落值后恢复充电，避免在上限附近反复启停。推荐上限 80%、回落 5%。</string>
+			<key>label</key>
+			<string>上限</string>
 		</dict>
 		<dict>
 			<key>PostNotification</key>
@@ -22,90 +24,75 @@
 			<key>key</key>
 			<string>chargeLimit</string>
 			<key>label</key>
-			<string>启用充电上限</string>
+			<string>充电上限</string>
 		</dict>
 		<dict>
 			<key>PostNotification</key>
 			<string>com.xyrith.xrhea/prefschanged</string>
 			<key>cell</key>
-			<string>PSLinkListCell</string>
+			<string>PSStaticTextCell</string>
+			<key>cellClass</key>
+			<string>XRHSliderCell</string>
 			<key>default</key>
 			<integer>80</integer>
 			<key>defaults</key>
 			<string>com.xyrith.xrhea</string>
-			<key>detail</key>
-			<string>PSListItemsController</string>
+			<key>height</key>
+			<integer>52</integer>
 			<key>key</key>
 			<string>chargeLimitMax</string>
 			<key>label</key>
 			<string>上限</string>
-			<key>validTitles</key>
-			<array>
-				<string>60%</string>
-				<string>70%</string>
-				<string>75%</string>
-				<string>80%</string>
-				<string>85%</string>
-				<string>90%</string>
-			</array>
-			<key>validValues</key>
-			<array>
-				<integer>60</integer>
-				<integer>70</integer>
-				<integer>75</integer>
-				<integer>80</integer>
-				<integer>85</integer>
-				<integer>90</integer>
-			</array>
+			<key>max</key>
+			<integer>90</integer>
+			<key>min</key>
+			<integer>60</integer>
+			<key>xrhFormat</key>
+			<string>level</string>
+			<key>xrhNameChars</key>
+			<integer>2</integer>
 			<key>xrhRequires</key>
 			<string>chargeLimit</string>
+			<key>xrhStep</key>
+			<integer>5</integer>
 		</dict>
 		<dict>
 			<key>PostNotification</key>
 			<string>com.xyrith.xrhea/prefschanged</string>
 			<key>cell</key>
-			<string>PSLinkListCell</string>
+			<string>PSStaticTextCell</string>
+			<key>cellClass</key>
+			<string>XRHSliderCell</string>
 			<key>default</key>
 			<integer>5</integer>
 			<key>defaults</key>
 			<string>com.xyrith.xrhea</string>
-			<key>detail</key>
-			<string>PSListItemsController</string>
+			<key>height</key>
+			<integer>52</integer>
 			<key>key</key>
 			<string>chargeLimitGap</string>
 			<key>label</key>
-			<string>掉到多少再充</string>
-			<key>shortTitles</key>
-			<array>
-				<string>−3%</string>
-				<string>−5%</string>
-				<string>−10%</string>
-				<string>−20%</string>
-			</array>
-			<key>staticTextMessage</key>
-			<string>比如上限 80%、选「上限 − 5%」：充到 80% 停，用到 75% 以下再插着线时才重新充。</string>
-			<key>validTitles</key>
-			<array>
-				<string>上限 − 3%</string>
-				<string>上限 − 5%</string>
-				<string>上限 − 10%</string>
-				<string>上限 − 20%</string>
-			</array>
-			<key>validValues</key>
-			<array>
-				<integer>3</integer>
-				<integer>5</integer>
-				<integer>10</integer>
-				<integer>20</integer>
-			</array>
+			<string>回落</string>
+			<key>max</key>
+			<integer>20</integer>
+			<key>min</key>
+			<integer>3</integer>
+			<key>xrhFormat</key>
+			<string>level</string>
+			<key>xrhNameChars</key>
+			<integer>2</integer>
 			<key>xrhRequires</key>
 			<string>chargeLimit</string>
+			<key>xrhStep</key>
+			<integer>1</integer>
 		</dict>
 		<dict>
 			<key>cell</key>
 			<string>PSGroupCell</string>
 			<key>footerText</key>
-			<string>插电时可选择本次充满，拔线后恢复上限。30 天未充满时提示充满一次，用于校准电量。</string>
+			<string>可选择本次充满，拔线后恢复上限。30 天未充满时提示充满一次，用于校准电量。</string>
+			<key>label</key>
+			<string>插电</string>
 			<key>xrhRequires</key>
 			<string>chargeLimit</string>
 		</dict>
@@ -118,10 +105,14 @@
 			<true/>
 			<key>defaults</key>
 			<string>com.xyrith.xrhea</string>
+			<key>height</key>
+			<integer>52</integer>
 			<key>key</key>
 			<string>chargeLimitAsk</string>
 			<key>label</key>
-			<string>插上电源时询问</string>
+			<string>插电时询问</string>
+			<key>xrhNote</key>
+			<string>上限或本次充满</string>
 			<key>xrhRequires</key>
 			<string>chargeLimit</string>
 		</dict>
@@ -129,7 +120,9 @@
 			<key>cell</key>
 			<string>PSGroupCell</string>
 			<key>footerText</key>
-			<string>开始时间按充电器实测速度计算。</string>
+			<string>夜间先停在上限，按充电器实测速度计算开始时间，在设定时间前充满。</string>
+			<key>label</key>
+			<string>定时充满</string>
 			<key>xrhRequires</key>
 			<string>chargeLimit</string>
 		</dict>

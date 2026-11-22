@@ -8,7 +8,7 @@
 			<key>cell</key>
 			<string>PSGroupCell</string>
 			<key>footerText</key>
-			<string>锁屏时开启的低电量模式在解锁后关闭；电量低于设定值时保持开启。推荐低于 20% 开启、充到 80% 关闭。</string>
+			<string>锁屏时开启的低电量模式在解锁后关闭，充电时开启的在拔线后关闭；电量低于设定值时保持开启。充电时开启可减少后台活动，充电更快、温度更低；系统充到 80% 时会自动关闭。推荐低于 20% 开启、充到 80% 关闭。</string>
 			<key>label</key>
 			<string>自动开关</string>
 		</dict>
@@ -125,6 +125,24 @@
 			<string>锁屏时开启</string>
 			<key>xrhNote</key>
 			<string>解锁后恢复</string>
+		</dict>
+		<dict>
+			<key>PostNotification</key>
+			<string>com.xyrith.xrhea/prefschanged</string>
+			<key>cell</key>
+			<string>PSSwitchCell</string>
+			<key>default</key>
+			<false/>
+			<key>defaults</key>
+			<string>com.xyrith.xrhea</string>
+			<key>height</key>
+			<integer>52</integer>
+			<key>key</key>
+			<string>lpmCharging</string>
+			<key>label</key>
+			<string>充电时开启</string>
+			<key>xrhNote</key>
+			<string>拔线后恢复</string>
 		</dict>
 		<dict>
 			<key>cell</key>

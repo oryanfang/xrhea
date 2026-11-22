@@ -103,6 +103,8 @@
         _valueLabel.text = [NSString stringWithFormat:@"%.0f%%", v];
     } else if ([format isEqualToString:@"celsius"]) {
         _valueLabel.text = [NSString stringWithFormat:@"%.0f℃", v];
+    } else if ([format isEqualToString:@"watts"]) {
+        _valueLabel.text = [NSString stringWithFormat:fmodf(v, 1) == 0 ? @"%.0f W" : @"%.1f W", v];
     } else if ([format isEqualToString:@"percent"]) {
         _valueLabel.text = [NSString stringWithFormat:@"%.0f%%", v * 100];
     } else if ([format isEqualToString:@"signedPercent"]) {
@@ -118,7 +120,7 @@
 - (void)xrh_sliderMoved {
     // level / celsius：拖的时候就一格一格吸附（50、55、60… / 1 ℃ 一格），每跳一格轻震一下
     NSString *format = [self.specifier propertyForKey:@"xrhFormat"];
-    if ([format isEqualToString:@"level"] || [format isEqualToString:@"celsius"]) {
+    if ([format isEqualToString:@"level"] || [format isEqualToString:@"celsius"] || [format isEqualToString:@"watts"]) {
         float snapped = [self xrh_roundedValue];
         if (snapped != _slider.value) {
             NSString *before = _valueLabel.text;
@@ -140,6 +142,7 @@
     float step = [format isEqualToString:@"seconds"] ? 0.1f : 0.01f;
     if ([format isEqualToString:@"level"]) step = [[self.specifier propertyForKey:@"xrhStep"] floatValue] ?: 5;
     if ([format isEqualToString:@"celsius"]) step = [[self.specifier propertyForKey:@"xrhStep"] floatValue] ?: 1;
+    if ([format isEqualToString:@"watts"]) step = [[self.specifier propertyForKey:@"xrhStep"] floatValue] ?: 0.5f;
     float v = roundf(_slider.value / step) * step;
     return MAX(_slider.minimumValue, MIN(_slider.maximumValue, v));
 }

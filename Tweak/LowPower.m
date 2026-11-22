@@ -2,6 +2,7 @@
 //   lpmBelowOn + lpmBelow（滑块 0～100%，推荐 20）：没接电源、电量掉到这个数时开一次（这次放电期间只开一次，用户手动关掉就不再开）
 //   lpmOffOn + lpmOffAt（滑块 0～100%，推荐 80）：接着电源充到这个数时关（不管是谁开的；系统自己在 80% 也会关）
 //   lpmLocked：锁屏时开，解锁时关——只关自己开的那次；锁屏期间电量掉到 lpmBelow 以下的，解锁后保持开着
+//   lpmCharging：插上电源时开，拔线时关——只关自己开的那次（插电前已经开着的不动）。系统充到 80% 会自己关低电量模式，这里不跟它抢
 // 开关低电量模式：iOS 17 用 _CDBatterySaver（CoreDuet），没有就试 _PMLowPowerMode（LowPowerMode.framework）
 #import "XRHCommon.h"
 #import <notify.h>
@@ -10,6 +11,8 @@
 static BOOL gLockLPM;      // 现在的低电量模式是锁屏时我们开的
 static BOOL gLowFired;     // 这次放电期间「低于 X% 开」已经触发过
 static int gLockToken = -1;
+static BOOL gChargeLPM;    // 现在的低电量模式是插上电源时我们开的
+static BOOL gLPMWasConnected;
 
 static BOOL XRHLPMOn(void) {
     return NSProcessInfo.processInfo.lowPowerModeEnabled;
@@ -59,6 +62,16 @@ static void XRHLowPowerTick(void) {
     BOOL connected = XRBatteryExternalConnected();
     if (isnan(level)) return;
     int below = XRHLPMBelow(), offAt = XRHLPMOffAt();
+
+    // 充电时开启：插上时开（本来没开才开），拔线时关自己开的那次
+    if (connected != gLPMWasConnected) {
+        gLPMWasConnected = connected;
+        if (connected && XRHOn(@"lpmCharging") && !XRHLPMOn() && XRHSetLPM(YES, @"插上电源")) gChargeLPM = YES;
+        else if (!connected && gChargeLPM) {
+            gChargeLPM = NO;
+            if (XRHLPMOn() && !(below > 0 && level <= below)) XRHSetLPM(NO, @"拔线");   // 拔线时电量已经低于「低电量时开启」的线就留着
+        }
+    }
 
     if (connected || below <= 0 || level > below) gLowFired = NO;
     else if (!gLowFired) {
@@ -111,5 +124,6 @@ void XRHInitLowPower(void) {
         dispatch_after(dispatch_time(DISPATCH_TIME_NOW, NSEC_PER_SEC), dispatch_get_main_queue(), ^{ XRHDebugLog(@"[LowPower] test-lpm 之后 now=%d", XRHLPMOn()); });
     });
 #endif
+    gLPMWasConnected = XRBatteryExternalConnected();   // 注销时本来就插着线：不算新插上
     XRHLowPowerTick();
 }

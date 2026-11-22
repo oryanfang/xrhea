@@ -3,7 +3,7 @@
 // 偏好域与通知名：设置面板写入这里，插件从这里读取
 #define XRH_PREFS_DOMAIN   @"com.xyrith.xrhea"
 #define XRH_PREFS_CHANGED  "com.xyrith.xrhea/prefschanged"
-// 设置页「提示」页每条提醒后面的「试试看」→ SpringBoard 用当前数据弹一次：com.xyrith.xrhea/try-alert-1 … -6（Alerts.m）
+// 设置页「提示」页每条提醒后面的「预览」→ SpringBoard 用当前数据弹一次：com.xyrith.xrhea/try-alert-1 … -6（Alerts.m）
 
 @interface XRHPrefs : NSObject
 

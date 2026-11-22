@@ -76,7 +76,7 @@
 			<key>label</key>
 			<string>点击提示</string>
 			<key>xrhNote</key>
-			<string>打开电池详情</string>
+			<string>打开相关页面</string>
 		</dict>
 		<dict>
 			<key>cell</key>
@@ -195,6 +195,26 @@
 			<string>到上限时</string>
 			<key>xrhTry</key>
 			<integer>2</integer>
+		</dict>
+		<dict>
+			<key>PostNotification</key>
+			<string>com.xyrith.xrhea/prefschanged</string>
+			<key>cell</key>
+			<string>PSSwitchCell</string>
+			<key>default</key>
+			<true/>
+			<key>defaults</key>
+			<string>com.xyrith.xrhea</string>
+			<key>height</key>
+			<integer>52</integer>
+			<key>key</key>
+			<string>alertBypass</string>
+			<key>label</key>
+			<string>直充</string>
+			<key>xrhNote</key>
+			<string>边充边玩停充时</string>
+			<key>xrhTry</key>
+			<integer>17</integer>
 		</dict>
 		<dict>
 			<key>PostNotification</key>
@@ -366,7 +386,7 @@
 			<key>cell</key>
 			<string>PSGroupCell</string>
 			<key>footerText</key>
-			<string>不要为了热闹而点亮每一个开关。</string>
+			<string>待机耗电、睡前、高耗电只在使用电池时判断。每周默认关闭。</string>
 			<key>label</key>
 			<string>用电</string>
 		</dict>
@@ -429,6 +449,26 @@
 			<string>功率 &gt; 6 W</string>
 			<key>xrhTry</key>
 			<integer>6</integer>
+		</dict>
+		<dict>
+			<key>PostNotification</key>
+			<string>com.xyrith.xrhea/prefschanged</string>
+			<key>cell</key>
+			<string>PSSwitchCell</string>
+			<key>default</key>
+			<false/>
+			<key>defaults</key>
+			<string>com.xyrith.xrhea</string>
+			<key>height</key>
+			<integer>52</integer>
+			<key>key</key>
+			<string>alertWeekly</string>
+			<key>label</key>
+			<string>每周</string>
+			<key>xrhNote</key>
+			<string>周一 9:00 小结</string>
+			<key>xrhTry</key>
+			<integer>16</integer>
 		</dict>
 	</array>
 	<key>title</key>

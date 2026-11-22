@@ -7,10 +7,24 @@
 		<dict>
 			<key>cell</key>
 			<string>PSGroupCell</string>
-			<key>footerText</key>
-			<string>停充：达到温度后停止充电。间歇充电：停 3 分钟、充 3 分钟交替，平均电流约减半。低于设定温度 3℃ 后恢复。推荐 40℃。</string>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSStaticTextCell</string>
+			<key>cellClass</key>
+			<string>XRHOptimizeStatusCell</string>
+			<key>height</key>
+			<integer>52</integer>
 			<key>label</key>
-			<string>高温保护</string>
+			<string>状态</string>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSGroupCell</string>
+			<key>footerText</key>
+			<string>停充：达到温度后停止充电。间歇充电：停 3 分钟、充 3 分钟交替，平均电流约减半。低于设定温度 3℃ 后恢复。无线充电发热更多，按单独的温度提前保护。推荐有线 40℃、无线 37℃。</string>
+			<key>label</key>
+			<string>充电保护</string>
 		</dict>
 		<dict>
 			<key>PostNotification</key>
@@ -64,6 +78,36 @@
 			<key>PostNotification</key>
 			<string>com.xyrith.xrhea/prefschanged</string>
 			<key>cell</key>
+			<string>PSStaticTextCell</string>
+			<key>cellClass</key>
+			<string>XRHSliderCell</string>
+			<key>default</key>
+			<integer>37</integer>
+			<key>defaults</key>
+			<string>com.xyrith.xrhea</string>
+			<key>height</key>
+			<integer>52</integer>
+			<key>key</key>
+			<string>thermalTempWireless</string>
+			<key>label</key>
+			<string>无线</string>
+			<key>max</key>
+			<integer>50</integer>
+			<key>min</key>
+			<integer>30</integer>
+			<key>xrhFormat</key>
+			<string>celsius</string>
+			<key>xrhNameChars</key>
+			<integer>2</integer>
+			<key>xrhRequires</key>
+			<string>thermalGuard</string>
+			<key>xrhStep</key>
+			<integer>1</integer>
+		</dict>
+		<dict>
+			<key>PostNotification</key>
+			<string>com.xyrith.xrhea/prefschanged</string>
+			<key>cell</key>
 			<string>PSLinkListCell</string>
 			<key>default</key>
 			<integer>1</integer>
@@ -89,6 +133,118 @@
 			</array>
 			<key>xrhRequires</key>
 			<string>thermalGuard</string>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSGroupCell</string>
+			<key>footerText</key>
+			<string>整机功耗 1 分钟平均高于设定值时停止给电池充电，由电源直接供电；低于设定值 1 W 后恢复。电量低于 20% 时不直充。推荐 4 W。</string>
+			<key>label</key>
+			<string>直充</string>
+		</dict>
+		<dict>
+			<key>PostNotification</key>
+			<string>com.xyrith.xrhea/prefschanged</string>
+			<key>cell</key>
+			<string>PSSwitchCell</string>
+			<key>default</key>
+			<false/>
+			<key>defaults</key>
+			<string>com.xyrith.xrhea</string>
+			<key>height</key>
+			<integer>52</integer>
+			<key>key</key>
+			<string>bypassCharge</string>
+			<key>label</key>
+			<string>边充边玩直充</string>
+			<key>xrhNote</key>
+			<string>高负载时</string>
+		</dict>
+		<dict>
+			<key>PostNotification</key>
+			<string>com.xyrith.xrhea/prefschanged</string>
+			<key>cell</key>
+			<string>PSStaticTextCell</string>
+			<key>cellClass</key>
+			<string>XRHSliderCell</string>
+			<key>default</key>
+			<integer>4</integer>
+			<key>defaults</key>
+			<string>com.xyrith.xrhea</string>
+			<key>height</key>
+			<integer>52</integer>
+			<key>key</key>
+			<string>bypassWatts</string>
+			<key>label</key>
+			<string>功耗</string>
+			<key>max</key>
+			<integer>10</integer>
+			<key>min</key>
+			<integer>2</integer>
+			<key>xrhFormat</key>
+			<string>watts</string>
+			<key>xrhNameChars</key>
+			<integer>2</integer>
+			<key>xrhRequires</key>
+			<string>bypassCharge</string>
+			<key>xrhStep</key>
+			<real>0.5</real>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSGroupCell</string>
+			<key>footerText</key>
+			<string>每小时查看一次系统电池记录；连续 3 个锁屏小时超过设定占比时提醒，同一个 App 每天最多一次。推荐 30%。</string>
+			<key>label</key>
+			<string>后台</string>
+		</dict>
+		<dict>
+			<key>PostNotification</key>
+			<string>com.xyrith.xrhea/prefschanged</string>
+			<key>cell</key>
+			<string>PSSwitchCell</string>
+			<key>default</key>
+			<false/>
+			<key>defaults</key>
+			<string>com.xyrith.xrhea</string>
+			<key>height</key>
+			<integer>52</integer>
+			<key>key</key>
+			<string>bgDrainAlert</string>
+			<key>label</key>
+			<string>后台耗电提醒</string>
+			<key>xrhNote</key>
+			<string>锁屏时单个 App 占比过高</string>
+		</dict>
+		<dict>
+			<key>PostNotification</key>
+			<string>com.xyrith.xrhea/prefschanged</string>
+			<key>cell</key>
+			<string>PSStaticTextCell</string>
+			<key>cellClass</key>
+			<string>XRHSliderCell</string>
+			<key>default</key>
+			<integer>30</integer>
+			<key>defaults</key>
+			<string>com.xyrith.xrhea</string>
+			<key>height</key>
+			<integer>52</integer>
+			<key>key</key>
+			<string>bgDrainShare</string>
+			<key>label</key>
+			<string>占比</string>
+			<key>max</key>
+			<integer>60</integer>
+			<key>min</key>
+			<integer>20</integer>
+			<key>xrhFormat</key>
+			<string>level</string>
+			<key>xrhNameChars</key>
+			<integer>2</integer>
+			<key>xrhRequires</key>
+			<string>bgDrainAlert</string>
+			<key>xrhStep</key>
+			<integer>5</integer>
 		</dict>
 	</array>
 	<key>title</key>
