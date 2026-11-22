@@ -71,6 +71,12 @@ Add the source `https://oryanfang.github.io/repo/` in Sileo or Zebra and install
 
 roothide only (package architecture `iphoneos-arm64e`). For rootless / rootful you need to change the packaging yourself, see [BUILDING.md](BUILDING.md).
 
+## Support
+
+xrhea is free. If it helps you, you can buy the author a coffee with WeChat: WeChat accepts Visa and Mastercard. On a phone, save the image, then in WeChat tap Scan › Album and choose it. A star on the repository helps too.
+
+<p align="center"><img src="docs/wechat-reward.jpg" width="240" alt="WeChat tip code"></p>
+
 ## License
 
 Licensed under the [PolyForm Noncommercial License 1.0.0](LICENSE): free for personal study, research and other noncommercial use; commercial use is not allowed.
