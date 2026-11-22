@@ -71,6 +71,12 @@ xrhea 只在手机上读电池自己报出来的数据和系统的电池记录�
 
 只支持 roothide（包架构 `iphoneos-arm64e`）。rootless / rootful 需要自己改打包方式，见 [BUILDING.md](BUILDING.md)。
 
+## 支持作者
+
+xrhea 免费使用。如果它帮到了你，可以用微信扫码请作者喝杯咖啡（手机上可以长按保存图片，再用微信扫一扫从相册识别）。给仓库点个 Star 也是很大的支持。
+
+<p align="center"><img src="docs/wechat-reward.jpg" width="240" alt="微信赞赏码"></p>
+
 ## 许可
 
 采用 [PolyForm Noncommercial License 1.0.0](LICENSE)：个人学习、研究等非商业用途免费使用，禁止商业用途。
