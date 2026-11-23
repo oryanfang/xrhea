@@ -773,6 +773,7 @@ static void XRHWeekDone(void) {
     gWeekWanted = NO;
     if (!XRHAlertTake(XRHAlertWeekly, NO)) return;   // 专注模式挡掉的：不算弹过，下次亮屏再来
     XRHWritePref(@"weeklyShown", @(XRHWeeklyDue()));
+    [[XRHPrefs shared] reload];   // 只写盘不会更新内存快照，不刷新的话下次亮屏读到的还是旧值，会再弹
     XRHDebugLog(@"[Alert] 每周小结 %@", w);
     XRHShowWeekly(w, NO);
 }
@@ -798,6 +799,7 @@ static void XRHBgDrainShowPending(void) {
     if ([shown isKindOfClass:NSDictionary.class]) [shown enumerateKeysAndObjectsUsingBlock:^(id k, id v, BOOL *stop) { if ([v isEqual:today]) m[k] = v; }];
     m[name] = today;
     XRHWritePref(@"bgDrainShown", m);
+    [[XRHPrefs shared] reload];   // 同上：刷新快照，否则同一个 App 当天还会再弹
     double share = [a[@"share"] doubleValue];
     XRHDebugLog(@"[Alert] 后台耗电 %@ %.0f%%", name, share * 100);
     // 和「待机耗电」错开，亮屏时两条可能一起来
