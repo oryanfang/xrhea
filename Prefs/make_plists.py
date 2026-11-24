@@ -209,12 +209,14 @@ PAGES["About"] = ("关于", [
     # 设置页语言（只影响设置页，XRHLocalize.h）：0 跟随系统 / 1 中文 / 2 English；改了马上重新加载，不用注销
     group(),
     choice("语言", "prefsLanguage", [0, 1, 2], ["跟随系统", "中文", "English"], 0, short=["跟随系统", "中文", "English"]),
-    group("软件源与反馈", "软件源地址：https://oryanfang.github.io/repo/\n「复制问题信息」会复制 xrhea 版本、iOS 版本、机型和改过的设置，可以贴进反馈里。\n「重启记录」只有开机时间和系统崩溃原因，不含 App 和使用信息。"),
+    group("软件源与反馈", "软件源地址：https://oryanfang.github.io/repo/\n「复制问题信息」会复制 xrhea 版本、iOS 版本、机型、改过的设置和最近的插电与提醒记录，可以贴进反馈里。\n「重启记录」只有开机时间和系统崩溃原因，不含 App 和使用信息。"),
     button("软件源", "xrhOpenRepo"),
     button("反馈问题", "xrhOpenIssues"),
     button("复制问题信息", "xrhCopyInfo"),
     # 重启记录：xrhead 写的 restarts.plist（开机时间 + panic 原因），弹窗显示、可复制
     button("重启记录", "xrhRestarts"),
+    # 插电自检：引导拔线、插线，按事件日志给结论（XRHRootListController.m 的 xrhSelfTest）
+    button("插电自检", "xrhSelfTest"),
     # 捐赠：打开微信赞赏码页（XRHDonateController）；XRHRootListController.m 的 kXRHKofiURL 填了以后英文界面改成打开 Ko-fi
     dict(group(None, "xrhea 免费使用。喜欢的话可以请作者喝杯咖啡。"), xrhDonate=True),
     dict(button("捐赠", "xrhDonate"), xrhDonate=True),
@@ -231,11 +233,21 @@ EN = {
         "Only tested on iOS 17.3.1. Requires a roothide jailbreak; it won't work with TrollStore alone. Opening this page checks GitHub once for a new version.",
     "版本": "Version", "作者": "Author", "适用系统": "Supported iOS", "越狱环境": "Jailbreak",
     "软件源与反馈": "Source & Feedback",
-    "软件源地址：https://oryanfang.github.io/repo/\n「复制问题信息」会复制 xrhea 版本、iOS 版本、机型和改过的设置，可以贴进反馈里。\n「重启记录」只有开机时间和系统崩溃原因，不含 App 和使用信息。":
-        "Source: https://oryanfang.github.io/repo/\n\"Copy Debug Info\" copies the xrhea and iOS versions, device model and changed settings for pasting into a report.\n\"Restart History\" only has boot times and system crash reasons, no apps or usage.",
+    "软件源地址：https://oryanfang.github.io/repo/\n「复制问题信息」会复制 xrhea 版本、iOS 版本、机型、改过的设置和最近的插电与提醒记录，可以贴进反馈里。\n「重启记录」只有开机时间和系统崩溃原因，不含 App 和使用信息。":
+        "Source: https://oryanfang.github.io/repo/\n\"Copy Debug Info\" copies the xrhea and iOS versions, device model, changed settings and recent plug-in and alert records for pasting into a report.\n\"Restart History\" only has boot times and system crash reasons, no apps or usage.",
     "重启记录": "Restart History", "开机": "Boots", "崩溃原因": "Crash reasons", "复制": "Copy",
     "还没有记录。xrhea 会在每次开机后记下开机时间，以及系统崩溃日志里的原因。": "No records yet. xrhea notes the boot time after each start, and the reason from any system crash log.",
     "没有崩溃日志": "No crash logs",
+    "插电自检": "Charging Self-Test",
+    "第 1 步：拔掉充电线。": "Step 1: Unplug the charging cable.",
+    "第 2 步：插上充电线，然后留在这一页等结果（最多 45 秒）。灵动岛弹出提示时请留意看。": "Step 2: Plug in the charging cable and stay on this page for the result (up to 45 seconds). Watch the Dynamic Island for the alert.",
+    "检测到插电，但提醒没弹出。原因：": "Plug-in detected, but the alert didn't show. Reason:",
+    "正常：检测到插电，提醒已经弹出。提示只停留约 3 秒，没看到的话可能是错过了。": "Working: plug-in detected and the alert was shown. It only stays about 3 seconds, so it may have been missed.",
+    "第 3 步：已插上，正在等结果…（%.0f 秒）\n插电提醒会等电流稳定后再弹，通常 6～25 秒。": "Step 3: Plugged in, waiting for the result… (%.0f s)\nThe alert waits for the current to settle, usually 6–25 seconds.",
+    "桌面（SpringBoard）没有反应：xrhea 可能没在运行。请注销一次（或重启后重新越狱）再试。": "SpringBoard didn't respond: xrhea may not be running. Respring (or re-jailbreak after a restart) and try again.",
+    "xrhea 在运行，但没检测到插电。请换一根线或一个充电头再试。": "xrhea is running but didn't detect the plug-in. Try another cable or charger.",
+    "检测到插电，但 45 秒内没走到弹出这一步。": "Plug-in detected, but the alert didn't get shown within 45 seconds.",
+    "自检结果": "Self-Test Result",
     "AOP 协处理器固件崩溃：苹果系统的已知问题，与 xrhea 无关": "AOP coprocessor firmware crash: a known Apple system issue, not caused by xrhea",
     "软件源": "Source", "反馈问题": "Report an Issue", "复制问题信息": "Copy Debug Info",
     "把 xrhea 的所有设置恢复成默认值。完成后需要注销。": "Restores every xrhea setting to its default. Respring afterwards.",
@@ -407,7 +419,7 @@ CODE_STRINGS = ["推送重连", "网络唤醒", "最近 24 小时", "最近 24 �
                 "%ld 分", "%ld 小时", "%ld 小时 %ld 分", "取消", "好",
 "%@ 开始充，%@ 前充满", "长条", "短条", "正在充电", "约40分钟", "预览", "截屏后打开微信 › 扫一扫 › 相册，选这张截图。", "打开微信", "需注销", "注销", "确定要注销（重启 SpringBoard）吗？", "取消", "有新版 %@", "在 Sileo 中添加", "复制地址",
                 "已复制", "好", "重置", "xrhea 的所有设置都会恢复默认。确定吗？", "已重置",
-                "重启记录", "开机", "崩溃原因", "复制", "没有崩溃日志", "AOP 协处理器固件崩溃：苹果系统的已知问题，与 xrhea 无关", "还没有记录。xrhea 会在每次开机后记下开机时间，以及系统崩溃日志里的原因。",
+                "重启记录", "开机", "崩溃原因", "复制", "没有崩溃日志", "第 1 步：拔掉充电线。", "第 2 步：插上充电线，然后留在这一页等结果（最多 45 秒）。灵动岛弹出提示时请留意看。", "检测到插电，但提醒没弹出。原因：", "正常：检测到插电，提醒已经弹出。提示只停留约 3 秒，没看到的话可能是错过了。", "第 3 步：已插上，正在等结果…（%.0f 秒）\n插电提醒会等电流稳定后再弹，通常 6～25 秒。", "桌面（SpringBoard）没有反应：xrhea 可能没在运行。请注销一次（或重启后重新越狱）再试。", "xrhea 在运行，但没检测到插电。请换一根线或一个充电头再试。", "检测到插电，但 45 秒内没走到弹出这一步。", "自检结果", "AOP 协处理器固件崩溃：苹果系统的已知问题，与 xrhea 无关", "还没有记录。xrhea 会在每次开机后记下开机时间，以及系统崩溃日志里的原因。",
                 "有些设置要注销后才会完全恢复，现在注销吗？", "稍后", "重置所有设置", "软件源",
                 # XRHBatteryController.m
                 "电池信息", "最大容量（相对新电池）", "容量", "实际容量", "设计容量", "当前电量",

@@ -67,10 +67,15 @@ static void XRHLowPowerTick(void) {
     // 充电时开启：插上时开（本来没开才开），拔线时关自己开的那次
     if (connected != gLPMWasConnected) {
         gLPMWasConnected = connected;
-        if (connected && XRHOn(@"lpmCharging") && !XRHLPMOn() && XRHSetLPM(YES, @"插上电源")) gChargeLPM = YES;
-        else if (!connected && gChargeLPM) {
+        if (connected && XRHOn(@"lpmCharging")) {
+            if (!XRHLPMOn()) { if (XRHSetLPM(YES, @"插上电源")) gChargeLPM = YES; }
+            // 锁屏时已经开着（锁屏开的）：改由「充电时开启」接管，解锁时不关、拔线时再关（2026-11-24 真机：插着电一解锁就被关了）
+            else if (gLockLPM) { gLockLPM = NO; gChargeLPM = YES; }
+        } else if (!connected && gChargeLPM) {
             gChargeLPM = NO;
-            if (XRHLPMOn() && !(below > 0 && level <= below)) XRHSetLPM(NO, @"拔线");   // 拔线时电量已经低于「低电量时开启」的线就留着
+            // 锁着屏且开了「锁屏时开启」：交还给锁屏规则，解锁时再关
+            if (XRHOn(@"lpmLocked") && XRHLocked()) gLockLPM = YES;
+            else if (XRHLPMOn() && !(below > 0 && level <= below)) XRHSetLPM(NO, @"拔线");   // 拔线时电量已经低于「低电量时开启」的线就留着
         }
     }
 

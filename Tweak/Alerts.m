@@ -99,17 +99,24 @@ static BOOL XRHFocusActive(void) {
 
 // 开着、冷却过了、（需要时）这次插拔还没弹过 → 记下并返回 YES
 static BOOL XRHAlertTake(XRHAlert a, BOOL oncePerPlug) {
-    if (!XRHAlertOn(a)) return NO;
+    // 诊断（0.3.4）：插电提醒没弹时把原因写进事件日志；其他提醒只记弹出的（它们每次读数都会问，记拦下的会刷屏）
+    BOOL plug = a == XRHAlertPlugIn;
+    if (!XRHAlertOn(a)) { if (plug) XRHEvent("sb", @"插电提醒没弹：开关关着"); return NO; }
     // 专注模式静默：每条可以自己选专注时照不照样弹（focusAllow.<键>，默认只有过热、低温照常）；
     // 被挡掉的不算弹过，不占冷却
     BOOL allow = [[XRHPrefs shared] boolForKey:[kXRHFocusAllowPrefix stringByAppendingString:XRHAlertKey(a)] fallback:a == XRHAlertHot || a == XRHAlertCold];
     if (!allow && [[XRHPrefs shared] boolForKey:kXRHToastFocusQuiet fallback:YES] && XRHFocusActive()) {
         XRHDebugLog(@"[Alert] 专注模式，静默 %ld", (long)a);
+        if (plug) XRHEvent("sb", @"插电提醒没弹：专注模式静默");
         return NO;
     }
     NSTimeInterval now = CFAbsoluteTimeGetCurrent();
-    if (gLastShown[a] > 0 && now - gLastShown[a] < kXRHAlertCooldown) return NO;
-    if (oncePerPlug && gShownThisPlug[a]) return NO;
+    if (gLastShown[a] > 0 && now - gLastShown[a] < kXRHAlertCooldown) {
+        if (plug) XRHEvent("sb", @"插电提醒没弹：30 分钟内弹过（%.0f 分钟前）", (now - gLastShown[a]) / 60);
+        return NO;
+    }
+    if (oncePerPlug && gShownThisPlug[a]) { if (plug) XRHEvent("sb", @"插电提醒没弹：这次插电已经弹过"); return NO; }
+    XRHEvent("sb", @"提醒 %@ → 弹出", XRHAlertKey(a));
     gLastShown[a] = now;
     gShownThisPlug[a] = YES;
     return YES;
@@ -499,7 +506,7 @@ static double XRHMinutesByRate(NSDictionary *r, double level, int target) {
 #pragma mark - 插上电源：等电流稳一点、等插电弹窗关掉再弹
 
 static void XRHPlugInWhenReady(NSMutableArray<NSNumber *> *amps, int tries) {
-    if (!gConnected) return;
+    if (!gConnected) { if (tries > 0) XRHEvent("sb", @"插电提醒没弹：还没等到就拔线了（%d 秒）", tries); return; }
     // 插电弹窗开着就等它关（最多等 1 分钟，期间照样记电流）
     XRHPush(amps, XRBatteryAmperage(), 8);
     // 刚插上电流还在往上爬（真机：第 6 秒才 194mA，算出「12 小时充满」）：等最近 3 次相差不超过 15%、且 > 300mA 才算稳，最多等 25 秒
@@ -513,7 +520,9 @@ static void XRHPlugInWhenReady(NSMutableArray<NSNumber *> *amps, int tries) {
         dispatch_after(dispatch_time(DISPATCH_TIME_NOW, NSEC_PER_SEC), dispatch_get_main_queue(), ^{ XRHPlugInWhenReady(amps, tries + 1); });
         return;
     }
-    if (XRHChargePromptShowing() || !XRHAlertTake(XRHAlertPlugIn, YES)) return;
+    XRHEvent("sb", @"插电提醒：等了 %d 秒，电流 %@ mA", tries, amps.count ? [NSString stringWithFormat:@"%.0f", amps.lastObject.doubleValue] : @"?");
+    if (XRHChargePromptShowing()) { XRHEvent("sb", @"插电提醒没弹：充电询问弹窗还开着"); return; }
+    if (!XRHAlertTake(XRHAlertPlugIn, YES)) return;
     // 弹窗里可能刚点了「这次充满」，偏好要重新读
     [[XRHPrefs shared] reload];
     int target = XRHLimitActive() ? XRHLimitMax() : 100;
@@ -1064,6 +1073,12 @@ void XRHInitAlerts(void) {
     });
     [NSNotificationCenter.defaultCenter addObserverForName:UIDeviceBatteryStateDidChangeNotification object:nil
                                                      queue:NSOperationQueue.mainQueue usingBlock:^(NSNotification *n) { XRHAlertPowerChanged(); }];
+
+    // 插电自检（关于页，0.3.4）：开始前清掉插电提醒的 30 分钟冷却，免得刚试过一次、自检时被冷却挡住
+    notify_register_dispatch("com.xyrith.xrhea/selftest-begin", &token, dispatch_get_main_queue(), ^(int t) {
+        gLastShown[XRHAlertPlugIn] = 0;
+        XRHEvent("sb", @"插电自检开始（已清插电提醒冷却）");
+    });
 
     // 16 每周小结：xrhead 算好了
     notify_register_dispatch("com.xyrith.xrhea/week-done", &token, dispatch_get_main_queue(), ^(int t) { XRHWeekDone(); });

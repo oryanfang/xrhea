@@ -24,6 +24,8 @@ static xr_io_object_t XRBatteryService(void) {
     return svc;
 }
 
+BOOL XRBatteryAvailable(void) { return XRBatteryService() != 0; }
+
 id XRBatteryObject(NSString *key) {
     xr_io_object_t svc = XRBatteryService();
     if (!svc || !key) return nil;

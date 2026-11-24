@@ -1,6 +1,8 @@
 #import "XRHRootListController.h"
 #import "XRHLocalize.h"
 #import "XRHKeys.h"
+#import "XRBattery.h"
+#import "XRHEvents.h"
 #import "XRHBatteryController.h"
 
 NSInteger gXRHPrefsLanguage = -1;
@@ -449,6 +451,34 @@ static BOOL XRHVersionNewer(NSString *a, NSString *b) {
     [UIApplication.sharedApplication openURL:url options:@{} completionHandler:nil];
 }
 
+// 插电自检（0.3.4）：引导用户拔线、插线，看 SpringBoard 写进事件日志的结果，用大白话给结论；不用把任何东西发给别人。
+// 0 拔线 → 1 插线 → 2 等结果（最多 45 秒）。事件日志的时间戳是本地时间 yyyy-MM-dd HH:mm:ss
+static NSTimer *gSelfTestTimer;
+static UIAlertController *gSelfTestAlert;
+static int gSelfTestStep;
+static NSDate *gSelfTestStart, *gSelfTestPlug;
+
+static NSArray<NSString *> *XRHEventsSince(NSDate *since) {
+    NSDateFormatter *f = [NSDateFormatter new];
+    f.locale = [NSLocale localeWithLocaleIdentifier:@"en_US_POSIX"];
+    f.dateFormat = @"yyyy-MM-dd HH:mm:ss";
+    NSMutableArray *out = [NSMutableArray array];
+    for (NSString *l in XRHEventsTail(200)) {
+        if (l.length < 20) continue;
+        NSDate *d = [f dateFromString:[l substringToIndex:19]];
+        if (d && [d timeIntervalSinceDate:since] >= -1) [out addObject:l];
+    }
+    return out;
+}
+
+static BOOL XRHSelfTestConnected(void) {
+    id v = XRBatteryObject(@"ExternalConnected");
+    if ([v isKindOfClass:[NSNumber class]]) return [v boolValue];
+    UIDevice.currentDevice.batteryMonitoringEnabled = YES;
+    UIDeviceBatteryState s = UIDevice.currentDevice.batteryState;
+    return s == UIDeviceBatteryStateCharging || s == UIDeviceBatteryStateFull;
+}
+
 // 重启记录：xrhead 写的 restarts.plist，只有开机时间和 panic 原因（不含 App 和使用信息），弹窗给用户看过再决定复制
 - (void)xrhRestarts {
     NSDictionary *d = [NSDictionary dictionaryWithContentsOfFile:XRH_RESTARTS_FILE];
@@ -487,6 +517,76 @@ static BOOL XRHVersionNewer(NSString *a, NSString *b) {
     [self presentViewController:alert animated:YES completion:nil];
 }
 
+- (void)xrhSelfTest {
+    [gSelfTestTimer invalidate];
+    gSelfTestStep = XRHSelfTestConnected() ? 0 : 1;
+    gSelfTestStart = [NSDate date];
+    gSelfTestPlug = nil;
+    notify_post("com.xyrith.xrhea/selftest-begin");
+    gSelfTestAlert = [UIAlertController alertControllerWithTitle:XRHL(@"插电自检") message:@"" preferredStyle:UIAlertControllerStyleAlert];
+    [gSelfTestAlert addAction:[UIAlertAction actionWithTitle:XRHL(@"取消") style:UIAlertActionStyleCancel handler:^(UIAlertAction *a) {
+        [gSelfTestTimer invalidate];
+        gSelfTestTimer = nil;
+    }]];
+    [self xrh_selfTestTick];
+    [self presentViewController:gSelfTestAlert animated:YES completion:nil];
+    gSelfTestTimer = [NSTimer scheduledTimerWithTimeInterval:1 target:self selector:@selector(xrh_selfTestTick) userInfo:nil repeats:YES];
+}
+
+- (void)xrh_selfTestTick {
+    BOOL connected = XRHSelfTestConnected();
+    if (gSelfTestStep == 0) {
+        gSelfTestAlert.message = XRHL(@"第 1 步：拔掉充电线。");
+        if (!connected) gSelfTestStep = 1;
+        return;
+    }
+    if (gSelfTestStep == 1) {
+        gSelfTestAlert.message = XRHL(@"第 2 步：插上充电线，然后留在这一页等结果（最多 45 秒）。灵动岛弹出提示时请留意看。");
+        if (connected) { gSelfTestStep = 2; gSelfTestPlug = [NSDate date]; }
+        return;
+    }
+    NSArray<NSString *> *events = XRHEventsSince(gSelfTestPlug);
+    BOOL sbAlive = NO, plugSeen = NO;
+    for (NSString *l in XRHEventsSince(gSelfTestStart)) if ([l containsString:@"插电自检开始"]) sbAlive = YES;
+    NSString *verdict = nil;
+    for (NSString *l in events) {
+        if ([l containsString:@"插上电源"]) plugSeen = YES;
+        NSRange r = [l rangeOfString:@"插电提醒没弹："];
+        if (r.location == NSNotFound) r = [l rangeOfString:@"提示没画出来："];
+        if (r.location != NSNotFound) {
+            verdict = [NSString stringWithFormat:@"❌ %@\n%@", XRHL(@"检测到插电，但提醒没弹出。原因："), [l substringFromIndex:NSMaxRange(r)]];
+            break;
+        }
+        if ([l containsString:@"提醒 alertPlugIn → 弹出"]) {
+            verdict = [NSString stringWithFormat:@"✅ %@", XRHL(@"正常：检测到插电，提醒已经弹出。提示只停留约 3 秒，没看到的话可能是错过了。")];
+            break;
+        }
+    }
+    double waited = -[gSelfTestPlug timeIntervalSinceNow];
+    if (!verdict && waited < 45) {
+        gSelfTestAlert.message = [NSString stringWithFormat:XRHL(@"第 3 步：已插上，正在等结果…（%.0f 秒）\n插电提醒会等电流稳定后再弹，通常 6～25 秒。"), waited];
+        return;
+    }
+    if (!verdict) {
+        if (!sbAlive) verdict = [NSString stringWithFormat:@"❌ %@", XRHL(@"桌面（SpringBoard）没有反应：xrhea 可能没在运行。请注销一次（或重启后重新越狱）再试。")];
+        else if (!plugSeen) verdict = [NSString stringWithFormat:@"❌ %@", XRHL(@"xrhea 在运行，但没检测到插电。请换一根线或一个充电头再试。")];
+        else verdict = [NSString stringWithFormat:@"❌ %@", XRHL(@"检测到插电，但 45 秒内没走到弹出这一步。")];
+    }
+    [gSelfTestTimer invalidate];
+    gSelfTestTimer = nil;
+    NSString *result = [verdict copy];
+    UIAlertController *old = gSelfTestAlert;
+    gSelfTestAlert = nil;
+    [old dismissViewControllerAnimated:YES completion:^{
+        UIAlertController *done = [UIAlertController alertControllerWithTitle:XRHL(@"自检结果") message:result preferredStyle:UIAlertControllerStyleAlert];
+        [done addAction:[UIAlertAction actionWithTitle:XRHL(@"复制") style:UIAlertActionStyleDefault handler:^(UIAlertAction *a) {
+            UIPasteboard.generalPasteboard.string = result;
+        }]];
+        [done addAction:[UIAlertAction actionWithTitle:XRHL(@"好") style:UIAlertActionStyleCancel handler:nil]];
+        [self presentViewController:done animated:YES completion:nil];
+    }];
+}
+
 // 复制问题信息：版本、系统、机型、偏好域里存着的设置（数组、字典只写数量）
 - (void)xrhCopyInfo {
     struct utsname u;
@@ -514,6 +614,24 @@ static BOOL XRHVersionNewer(NSString *a, NSString *b) {
             }
         }
     }
+    // 运行时诊断（0.3.4）：电池读不读得到、此刻插没插电、低电量模式，以及最近的插电 / 提醒 / 提示记录（事件日志里 SpringBoard 那部分，不含 App 信息）
+    UIDevice *dev = UIDevice.currentDevice;
+    dev.batteryMonitoringEnabled = YES;
+    id ext = XRBatteryObject(@"ExternalConnected");
+    [text appendString:@"Runtime:\n"];
+    [text appendFormat:@"  battery IOKit = %@\n", XRBatteryAvailable() ? @"ok" : @"unavailable"];
+    [text appendFormat:@"  ExternalConnected = %@ · UIDevice state = %ld\n", ext ?: @"nil", (long)dev.batteryState];
+    [text appendFormat:@"  Low Power Mode = %d\n", NSProcessInfo.processInfo.isLowPowerModeEnabled];
+    NSMutableArray<NSString *> *recent = [NSMutableArray array];
+    for (NSString *l in XRHEventsTail(400)) {
+        if (![l containsString:@"[sb]"] || [l containsString:@"亮屏"] || [l containsString:@"灭屏"]) continue;
+        [recent addObject:l.length > 19 ? [l substringFromIndex:5] : l];   // 去掉年份，短一点
+    }
+    if (recent.count > 15) [recent removeObjectsInRange:NSMakeRange(0, recent.count - 15)];
+    [text appendString:@"Recent events:\n"];
+    if (!recent.count) [text appendString:@"  (none)\n"];
+    for (NSString *l in recent) [text appendFormat:@"  %@\n", l];
+
     UIPasteboard.generalPasteboard.string = text;
     UIAlertController *alert = [UIAlertController alertControllerWithTitle:XRHL(@"已复制") message:text preferredStyle:UIAlertControllerStyleAlert];
     [alert addAction:[UIAlertAction actionWithTitle:XRHL(@"好") style:UIAlertActionStyleCancel handler:nil]];

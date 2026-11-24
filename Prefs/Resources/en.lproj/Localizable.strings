@@ -46,6 +46,8 @@
 	<string>iCloud Backup</string>
 	<key>xrhea 免费使用。喜欢的话可以请作者喝杯咖啡。</key>
 	<string>xrhea is free. If you like it, you can buy the author a coffee.</string>
+	<key>xrhea 在运行，但没检测到插电。请换一根线或一个充电头再试。</key>
+	<string>xrhea is running but didn't detect the plug-in. Try another cable or charger.</string>
 	<key>xrhea 的所有设置都会恢复默认。确定吗？</key>
 	<string>All xrhea settings will be restored to defaults. Continue?</string>
 	<key>• 拔掉充电线
@@ -320,6 +322,8 @@ Banner: a card slides down from the top; swipe up or tap to close.</string>
 	<string>Plug-in</string>
 	<key>插电时询问</key>
 	<string>Ask When Plugged In</string>
+	<key>插电自检</key>
+	<string>Charging Self-Test</string>
 	<key>插着充电器，功率却一直低于 5 W。
 • 换一根线或换个充电头试试
 • 手机太热时也会自动降速</key>
@@ -396,10 +400,18 @@ Banner: a card slides down from the top; swipe up or tap to close.</string>
 	<string>Inactive</string>
 	<key>本次</key>
 	<string>This Charge</string>
+	<key>桌面（SpringBoard）没有反应：xrhea 可能没在运行。请注销一次（或重启后重新越狱）再试。</key>
+	<string>SpringBoard didn't respond: xrhea may not be running. Respring (or re-jailbreak after a restart) and try again.</string>
+	<key>检测到插电，但 45 秒内没走到弹出这一步。</key>
+	<string>Plug-in detected, but the alert didn't get shown within 45 seconds.</string>
+	<key>检测到插电，但提醒没弹出。原因：</key>
+	<string>Plug-in detected, but the alert didn't show. Reason:</string>
 	<key>横幅</key>
 	<string>Banner</string>
 	<key>正在充电</key>
 	<string>Charging</string>
+	<key>正常：检测到插电，提醒已经弹出。提示只停留约 3 秒，没看到的话可能是错过了。</key>
+	<string>Working: plug-in detected and the alert was shown. It only stays about 3 seconds, so it may have been missed.</string>
 	<key>每周</key>
 	<string>Weekly</string>
 	<key>每小时查看一次系统电池记录；连续 3 个锁屏小时超过设定占比时提醒，同一个 App 每天最多一次。推荐 30%。</key>
@@ -466,6 +478,14 @@ Banner: a card slides down from the top; swipe up or tap to close.</string>
 	<string>Respring (restart SpringBoard) now?</string>
 	<key>稍后</key>
 	<string>Later</string>
+	<key>第 1 步：拔掉充电线。</key>
+	<string>Step 1: Unplug the charging cable.</string>
+	<key>第 2 步：插上充电线，然后留在这一页等结果（最多 45 秒）。灵动岛弹出提示时请留意看。</key>
+	<string>Step 2: Plug in the charging cable and stay on this page for the result (up to 45 seconds). Watch the Dynamic Island for the alert.</string>
+	<key>第 3 步：已插上，正在等结果…（%.0f 秒）
+插电提醒会等电流稳定后再弹，通常 6～25 秒。</key>
+	<string>Step 3: Plugged in, waiting for the result… (%.0f s)
+The alert waits for the current to settle, usually 6–25 seconds.</string>
 	<key>系统</key>
 	<string>System</string>
 	<key>系统内核</key>
@@ -498,6 +518,8 @@ Banner: a card slides down from the top; swipe up or tap to close.</string>
 	<string>Automatic</string>
 	<key>自动开关</key>
 	<string>Automation</string>
+	<key>自检结果</key>
+	<string>Self-Test Result</string>
 	<key>蓝牙</key>
 	<string>Bluetooth</string>
 	<key>蜂窝网络</key>
@@ -523,10 +545,10 @@ Banner: a card slides down from the top; swipe up or tap to close.</string>
 	<key>软件源与反馈</key>
 	<string>Source &amp; Feedback</string>
 	<key>软件源地址：https://oryanfang.github.io/repo/
-「复制问题信息」会复制 xrhea 版本、iOS 版本、机型和改过的设置，可以贴进反馈里。
+「复制问题信息」会复制 xrhea 版本、iOS 版本、机型、改过的设置和最近的插电与提醒记录，可以贴进反馈里。
 「重启记录」只有开机时间和系统崩溃原因，不含 App 和使用信息。</key>
 	<string>Source: https://oryanfang.github.io/repo/
-"Copy Debug Info" copies the xrhea and iOS versions, device model and changed settings for pasting into a report.
+"Copy Debug Info" copies the xrhea and iOS versions, device model, changed settings and recent plug-in and alert records for pasting into a report.
 "Restart History" only has boot times and system crash reasons, no apps or usage.</string>
 	<key>边充边玩停充时</key>
 	<string>under load</string>

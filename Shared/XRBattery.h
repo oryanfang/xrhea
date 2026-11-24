@@ -20,6 +20,8 @@
 // 按顺序找第一个有的键，返回数值；都没有返回 NAN
 double XRBatteryNumber(NSArray<NSString *> *keys);
 // 读一个键的原始值（比如 AdapterDetails 字典），没有返回 nil
+// 能不能读到 AppleSmartBattery（读不到时插电检测退回 UIDevice 的电池状态）
+BOOL XRBatteryAvailable(void);
 id XRBatteryObject(NSString *key);
 
 double XRBatteryVoltage(void);          // 电压，mV

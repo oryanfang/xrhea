@@ -58,7 +58,7 @@ Objective‑C / Logos, built with Theos, for **roothide** jailbreaks. Made for i
 - Each alert shows at most once every 30 minutes.
 
 **About page**
-- Language (System / 中文 / English), check GitHub for a new version, report an issue, copy debug info (versions, device model and changed settings), restart history (boot times and system crash reasons, no apps or usage), donate, reset all settings.
+- Language (System / 中文 / English), check GitHub for a new version, report an issue, copy debug info (versions, device model, changed settings and recent plug-in and alert records), restart history (boot times and system crash reasons, no apps or usage), charging self-test (unplug and plug in when asked, and it tells you whether the plug-in alert works and why not if it doesn't), donate, reset all settings.
 
 Settings live in Settings › xrhea.
 

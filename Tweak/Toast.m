@@ -194,6 +194,7 @@ static UIView *XRHToastDot(XRHToastKind kind, NSString *symbol, CGFloat size) {
 static XRHToastWindow *gToastWindow;
 static NSMutableArray<NSArray *> *gToastQueue;   // 排队：@[kind, symbol, title, detail, compact, compactDetail, label, value]
 static BOOL gToastShowing;
+static CFAbsoluteTime gToastShownAt;   // 这条开始显示的时间：超过 20 秒还没收起就当卡住了（正常 3～5 秒）
 
 static void XRHToastNext(void);
 
@@ -517,12 +518,20 @@ static void XRHShowBanner(XRHToastWindow *win, XRHToastKind kind, NSString *symb
 }
 
 static void XRHToastNext(void) {
+    if (gToastShowing && CFAbsoluteTimeGetCurrent() - gToastShownAt > 20) {
+        // 保护：收起动画的回调没来（不该发生），不处理的话后面的提示会一直排队、永远弹不出来
+        XRHEvent("sb", @"上一条提示 %.0f 秒没收起，强制收起", CFAbsoluteTimeGetCurrent() - gToastShownAt);
+        gToastWindow.hidden = YES;
+        gToastWindow = nil;
+        gToastShowing = NO;
+    }
     if (gToastShowing || !gToastQueue.count) return;
     NSArray *item = gToastQueue.firstObject;
     [gToastQueue removeObjectAtIndex:0];
     UIWindowScene *scene = XRHActiveWindowScene();
-    if (!scene) return;
+    if (!scene) { XRHEvent("sb", @"提示没画出来：找不到窗口场景（%@）", item[2]); return; }
     gToastShowing = YES;
+    gToastShownAt = CFAbsoluteTimeGetCurrent();
     gToastWindow = [[XRHToastWindow alloc] initWithWindowScene:scene];
     gToastWindow.windowLevel = UIWindowLevelStatusBar + 100;
     gToastWindow.backgroundColor = UIColor.clearColor;
@@ -534,6 +543,7 @@ static void XRHToastNext(void) {
     NSString *detail = item[3] == NSNull.null ? nil : item[3];
     BOOL island = XRHUseIslandStyle();
     XRHDebugLog(@"[Toast] %@ kind=%ld %@ / %@", island ? @"灵动岛" : @"横幅", (long)kind, item[2], detail);
+    XRHEvent("sb", @"提示 → %@：%@", !island ? @"横幅" : (int)XRHDouble(kXRHIslandStyle, 0, 0, 1) == 1 ? @"灵动岛短条" : @"灵动岛长条", item[2]);
     NSString *title = item[2];
     NSString *compact = item[4] == NSNull.null ? nil : item[4], *compactDetail = item[5] == NSNull.null ? nil : item[5];
     if (!island) { XRHShowBanner(gToastWindow, kind, symbol, title, detail); return; }
@@ -562,7 +572,7 @@ void XRHShowToastOpening(XRHToastKind kind, NSString *symbol, NSString *title, N
     if (!title.length) return;
     dispatch_async(dispatch_get_main_queue(), ^{
         if (!gToastQueue) gToastQueue = [NSMutableArray array];
-        if (gToastQueue.count >= 3) return;   // 一下子来太多就丢掉后面的
+        if (gToastQueue.count >= 3) { XRHEvent("sb", @"提示没画出来：排队已满（%@）", title); return; }   // 一下子来太多就丢掉后面的
         [gToastQueue addObject:@[@(kind), symbol ?: (id)NSNull.null, title, detail ?: (id)NSNull.null, compact ?: (id)NSNull.null, compactDetail ?: (id)NSNull.null,
                                   label ?: (id)NSNull.null, value ?: (id)NSNull.null, tapPath ?: (id)NSNull.null]];
         XRHToastNext();
