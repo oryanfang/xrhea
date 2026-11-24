@@ -685,6 +685,7 @@ static void XRHAlertPowerChanged(void) {
     BOOL connected = XRBatteryExternalConnected();
     if (connected == gConnected) return;
     gConnected = connected;
+    XRHEvent("sb", @"%@ 电量 %.0f%% %.1f℃", connected ? @"插上电源" : @"拔掉电源", XRBatteryLevel(), XRBatteryTemperature());
     [gWatts removeAllObjects];   // 插拔前后的功率不是一回事，混着算不准
     [gAmps removeAllObjects];
 
@@ -818,6 +819,7 @@ static void XRHBgDrainArrived(void) {
 #pragma mark - 待机掉电：灭屏记电量，亮屏算这段掉了多少
 
 static void XRHScreenChanged(void) {
+    XRHEvent("sb", @"%@", XRHScreenBlanked() ? @"灭屏" : @"亮屏");
     if (XRHScreenBlanked()) {
         gBlankLevel = XRBatteryLevel();
         gBlankTime = CFAbsoluteTimeGetCurrent();

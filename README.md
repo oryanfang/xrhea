@@ -26,7 +26,8 @@ Objective‑C / Logos, built with Theos, for **roothide** jailbreaks. Made for i
 - Charging history for the last 30 days: time, level, charge added, average and peak power, peak temperature, charger, and how it ended (unplugged / held at the limit / full). Each session has its own level and power chart.
 - Chargers: the measured charging speed of each one, how often it was used, and a name you can set.
 - Battery drain: average standby drain, usage by app (all, and while locked) from the system battery log, push-notification reconnects and network wakes over the last 24 hours. Frequent push reconnects (often caused by a proxy or VPN) are flagged with the likely causes.
-- Export: one Markdown file with all of the above, ready to save or hand to an AI for analysis.
+- Event log: key actions by xrhea (charging stopped / resumed, Low Power Mode switched) plus plug-ins, screen locks and boot time; at startup it also quotes the first line of any new system crash log (panic), to help track down restarts. Kept on the phone only.
+- Export: one Markdown file with all of the above (including the last 300 event log entries), ready to save or hand to an AI for analysis.
 
 **Charge limit**
 - Stop charging at 60–90%. While plugged in, the charger powers the phone directly and the battery neither charges nor drains; charging resumes once the level drops below the limit by the amount you choose.
@@ -63,7 +64,7 @@ Settings live in Settings › xrhea.
 
 ## Privacy
 
-xrhea reads the battery's own readings and the system battery log on the phone and keeps everything there. It collects nothing and sends nothing; the only network request is the About page checking GitHub for a new version when you open it. The log export is created only when you tap it and goes only where you share it; it includes which apps used the battery. The battery's and charger's serial numbers are never shown, saved or exported.
+xrhea reads the battery's own readings, the system battery log and the first line of system crash logs (for the event log) on the phone and keeps everything there. It collects nothing and sends nothing; the only network request is the About page checking GitHub for a new version when you open it. The log export is created only when you tap it and goes only where you share it; it includes which apps used the battery. The battery's and charger's serial numbers are never shown, saved or exported.
 
 ## Install
 

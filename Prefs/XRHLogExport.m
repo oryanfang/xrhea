@@ -3,6 +3,7 @@
 #import "XRHLocalize.h"
 #import "XRHKeys.h"
 #import "XRBattery.h"
+#import "XRHEvents.h"
 #import <UIKit/UIKit.h>
 #import <sys/utsname.h>
 
@@ -106,6 +107,10 @@ NSString *XRHExportMarkdown(void) {
     BOOL bypass = XRHExportOn(@"bypassCharge", NO);
     [md appendFormat:@"- %@：%@", XRHE(@"边充边玩直充", @"Bypass while gaming"), XRHExportOnOff(bypass)];
     if (bypass) [md appendFormat:@"（%@ %.1f W）", XRHE(@"功耗高于", @"above"), XRHExportNum(@"bypassWatts", 4)];
+    [md appendFormat:@"\n- %@：%@ %@ · %@ %@ · %@ %@", XRHE(@"低电量模式自动化", @"Low Power Mode automation"),
+        XRHE(@"充电时", @"while charging"), XRHExportOnOff(XRHExportOn(@"lpmCharging", NO)),
+        XRHE(@"锁屏时", @"while locked"), XRHExportOnOff(XRHExportOn(@"lpmLocked", NO)),
+        XRHE(@"保持高刷新率", @"keep 120 Hz"), XRHExportOnOff(XRHExportOn(@"lpmKeepHighRefresh", NO))];
     [md appendFormat:@"\n- %@：%@\n\n", XRHE(@"系统优化电池充电", @"System Optimized Charging"), XRHE(@"xrhea 读不到，需自行确认", @"not readable by xrhea; check manually")];
 
     // 充电记录
@@ -187,6 +192,15 @@ NSString *XRHExportMarkdown(void) {
             [rows addObject:@[it[@"title"], it[@"subtitle"] ?: (it[@"bundleID"] ?: @""), XRHShareText([it[@"share"] doubleValue])]];
         }
         XRHExportTable(md, @[XRHE(@"名称", @"Name"), XRHE(@"标识", @"ID"), XRHE(@"占比", @"Share")], rows);
+    }
+
+    // 事件日志：排查重启 / 异常用（启动、停充、低电量切换、插拔、锁屏、发现 panic）
+    NSArray<NSString *> *events = XRHEventsTail(300);
+    if (events.count) {
+        [md appendFormat:@"## %@\n\n%@\n\n```\n%@\n```\n", XRHE(@"事件日志（最近 300 条）", @"Event log (last 300 entries)"),
+            XRHE(@"xrhea 做过的关键动作和系统事件，用来对照重启或异常发生前后的情况。「开机于」变了表示整机重启过；「发现 panic」是系统崩溃日志的第一行。",
+                 @"Key actions by xrhea and system events, for checking what happened around a restart. A changed boot time means the phone restarted; \"panic\" lines quote the first line of a system crash log."),
+            [events componentsJoinedByString:@"\n"]];
     }
     return md;
 }

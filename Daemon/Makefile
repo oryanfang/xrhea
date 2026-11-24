@@ -2,8 +2,8 @@
 include $(THEOS)/makefiles/common.mk
 
 TOOL_NAME = xrhead
-xrhead_FILES = main.m
-xrhead_CFLAGS = -fobjc-arc
+xrhead_FILES = main.m ../Shared/XRHEvents.m
+xrhead_CFLAGS = -fobjc-arc -I../Shared
 xrhead_LIBRARIES = sqlite3   # 只读系统电池记录（耗电排行）
 ifneq ($(FINALPACKAGE),1)
 xrhead_CFLAGS += -DXRH_DEBUG=1

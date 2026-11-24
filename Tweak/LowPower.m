@@ -41,6 +41,7 @@ static BOOL XRHSetLPM(BOOL on, NSString *why) {
         }
     }
     XRHDebugLog(@"[LowPower] 低电量模式 → %d（%@）ok=%d", on, why, ok);
+    XRHEvent("sb", @"低电量模式 → %@（%@）ok=%d", on ? @"开" : @"关", why, ok);
     return ok;
 }
 
@@ -108,6 +109,7 @@ void XRHSyncHighRefresh(void) {
     notify_set_state(token, v);
     notify_post("com.xyrith.xrhea/keep-high-refresh");
     XRHDebugLog(@"[LowPower] 保持高刷新率 → %llu", v);
+    XRHEvent("sb", @"保持高刷新率 → %llu（通知 backboardd）", v);
 }
 
 void XRHInitLowPower(void) {

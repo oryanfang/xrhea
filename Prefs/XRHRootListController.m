@@ -13,6 +13,54 @@ NSInteger gXRHPrefsLanguage = -1;
 static NSString *const kXRHRepo = @"oryanfang/xrhea";
 // 软件源（GitHub Pages）
 static NSString *const kXRHSourceURL = @"https://oryanfang.github.io/repo/";
+// 关于页「捐赠」：都显示微信赞赏码页（外国人的微信可以绑 Visa / Mastercard 付款）；以后开了 Ko-fi 就填这里，英文界面改成打开 Ko-fi
+static NSString *const kXRHKofiURL = @"";
+
+// 微信赞赏码页：图在 bundle 里（wechat-reward.jpg）。「设置」App 没有写相册的权限，存图会闪退，所以只让截屏后从相册扫
+@interface XRHDonateController : UIViewController
+@end
+
+@implementation XRHDonateController
+- (void)viewDidLoad {
+    [super viewDidLoad];
+    self.title = XRHL(@"捐赠");
+    self.view.backgroundColor = UIColor.systemGroupedBackgroundColor;
+    NSString *path = [XRHPrefsBundle() pathForResource:@"wechat-reward" ofType:@"jpg"];
+    UIImageView *code = [[UIImageView alloc] initWithImage:[UIImage imageWithContentsOfFile:path]];
+    code.contentMode = UIViewContentModeScaleAspectFit;
+    code.layer.cornerRadius = 16;
+    code.clipsToBounds = YES;
+    UILabel *note = [UILabel new];
+    note.text = XRHL(@"截屏后打开微信 › 扫一扫 › 相册，选这张截图。");
+    note.font = [UIFont preferredFontForTextStyle:UIFontTextStyleFootnote];
+    note.textColor = UIColor.secondaryLabelColor;
+    note.textAlignment = NSTextAlignmentCenter;
+    note.numberOfLines = 0;
+    UIButton *open = [UIButton buttonWithType:UIButtonTypeSystem];
+    [open setTitle:XRHL(@"打开微信") forState:UIControlStateNormal];
+    open.titleLabel.font = [UIFont preferredFontForTextStyle:UIFontTextStyleBody];
+    [open addTarget:self action:@selector(xrh_openWeChat) forControlEvents:UIControlEventTouchUpInside];
+    UIStackView *stack = [[UIStackView alloc] initWithArrangedSubviews:@[code, note, open]];
+    stack.axis = UILayoutConstraintAxisVertical;
+    stack.alignment = UIStackViewAlignmentCenter;
+    stack.spacing = 16;
+    stack.translatesAutoresizingMaskIntoConstraints = NO;
+    [self.view addSubview:stack];
+    UILayoutGuide *g = self.view.safeAreaLayoutGuide;
+    [NSLayoutConstraint activateConstraints:@[
+        [stack.centerXAnchor constraintEqualToAnchor:g.centerXAnchor],
+        [stack.centerYAnchor constraintEqualToAnchor:g.centerYAnchor constant:-20],
+        [stack.leadingAnchor constraintGreaterThanOrEqualToAnchor:g.leadingAnchor constant:32],
+        [code.widthAnchor constraintEqualToConstant:260],
+        [code.heightAnchor constraintEqualToAnchor:code.widthAnchor multiplier:801.0 / 650],
+        [note.widthAnchor constraintLessThanOrEqualToConstant:300],
+    ]];
+}
+
+- (void)xrh_openWeChat {
+    [UIApplication.sharedApplication openURL:[NSURL URLWithString:@"weixin://"] options:@{} completionHandler:nil];
+}
+@end
 
 // 私有 API：通过 FrontBoardServices 让 SpringBoard 重启（注销）
 @interface SBSRelaunchAction : NSObject
@@ -385,6 +433,14 @@ static BOOL XRHVersionNewer(NSString *a, NSString *b) {
     sheet.popoverPresentationController.sourceView = self.view;
     sheet.popoverPresentationController.sourceRect = CGRectMake(CGRectGetMidX(self.view.bounds), CGRectGetMidY(self.view.bounds), 1, 1);
     [self presentViewController:sheet animated:YES completion:nil];
+}
+
+- (void)xrhDonate {
+    if (XRHUsesEnglish() && kXRHKofiURL.length) {
+        [UIApplication.sharedApplication openURL:[NSURL URLWithString:kXRHKofiURL] options:@{} completionHandler:nil];
+        return;
+    }
+    [self.navigationController pushViewController:[XRHDonateController new] animated:YES];
 }
 
 - (void)xrhOpenIssues {

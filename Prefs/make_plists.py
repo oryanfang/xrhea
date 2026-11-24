@@ -213,6 +213,9 @@ PAGES["About"] = ("关于", [
     button("软件源", "xrhOpenRepo"),
     button("反馈问题", "xrhOpenIssues"),
     button("复制问题信息", "xrhCopyInfo"),
+    # 捐赠：打开微信赞赏码页（XRHDonateController）；XRHRootListController.m 的 kXRHKofiURL 填了以后英文界面改成打开 Ko-fi
+    dict(group(None, "xrhea 免费使用。喜欢的话可以请作者喝杯咖啡。"), xrhDonate=True),
+    dict(button("捐赠", "xrhDonate"), xrhDonate=True),
     group(None, "把 xrhea 的所有设置恢复成默认值。完成后需要注销。"),
     button("重置所有设置", "xrhResetAll"),
 ])
@@ -246,7 +249,7 @@ EN = {
     "22 点后电量 < 30%": "< 30% after 10 PM", "功率 > 6 W": "above 6 W", "专注时静默": "Silence During Focus",
     "照常提醒 · 充电": "Still Alert · Charging", "照常提醒 · 异常": "Still Alert · Issues", "照常提醒 · 用电": "Still Alert · Usage",
     "灵动岛": "Dynamic Island", "长条": "Long", "短条": "Short", "正在充电": "Charging", "约40分钟": "~40 min", "点按跳转": "Tap to Open", "打开电池信息": "battery details",
-    "中断": "Stopped", "边充边玩停充时": "under load", "插着却不充": "plugged, not charging",
+    "中断": "Stopped", "捐赠": "Donate", "截屏后打开微信 › 扫一扫 › 相册，选这张截图。": "Take a screenshot, then in WeChat tap Scan › Album and choose it. WeChat accepts Visa and Mastercard.", "打开微信": "Open WeChat", "xrhea 免费使用。喜欢的话可以请作者喝杯咖啡。": "xrhea is free. If you like it, you can buy the author a coffee.", "边充边玩停充时": "under load", "插着却不充": "plugged, not charging",
     "待机耗电、睡前、高耗电只在使用电池时判断。每周默认关闭。": "Standby, Bedtime and High Drain only apply on battery. Weekly is off by default.",
     "%@ 开始充，%@ 前充满": "Charging from %@, full by %@", "定时充满": "Scheduled Full Charge", "设定时间前充满": "full by the set time", "开始时间按充电器实测速度计算。": "The start time is based on the measured speed of the charger.", "充满时间": "Full By",
     "到点": "Target", "充到 %d%%": "at %d%%", "电量": "Level", "异常": "Issues", "用电": "Usage",
@@ -396,7 +399,7 @@ CODE_STRINGS = ["推送重连", "网络唤醒", "最近 24 小时", "最近 24 �
                 "时长", "充入", "平均功率", "最高功率", "最高温度", "本次", "结束方式", "拔线", "到上限停充", "开启", "已触发", "有", "无",
                 "改名", "留空恢复默认名字。", "充满", "降速", "定时充满", "高温保护", "充电器", "电量", "功率", "状态", "无线", "正在充电",
                 "%ld 分", "%ld 小时", "%ld 小时 %ld 分", "取消", "好",
-"%@ 开始充，%@ 前充满", "长条", "短条", "正在充电", "约40分钟", "预览", "需注销", "注销", "确定要注销（重启 SpringBoard）吗？", "取消", "有新版 %@", "在 Sileo 中添加", "复制地址",
+"%@ 开始充，%@ 前充满", "长条", "短条", "正在充电", "约40分钟", "预览", "截屏后打开微信 › 扫一扫 › 相册，选这张截图。", "打开微信", "需注销", "注销", "确定要注销（重启 SpringBoard）吗？", "取消", "有新版 %@", "在 Sileo 中添加", "复制地址",
                 "已复制", "好", "重置", "xrhea 的所有设置都会恢复默认。确定吗？", "已重置",
                 "有些设置要注销后才会完全恢复，现在注销吗？", "稍后", "重置所有设置", "软件源",
                 # XRHBatteryController.m

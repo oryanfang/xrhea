@@ -53,6 +53,8 @@
 #import <notify.h>
 #import <signal.h>
 #import <sqlite3.h>
+#import <sys/sysctl.h>
+#import "XRHEvents.h"
 
 #define XRH_DOMAIN       CFSTR("com.xyrith.xrhea")
 #define XRH_NOTIFY       "com.xyrith.xrhea/prefschanged"
@@ -173,6 +175,7 @@ static void XRHSetInhibit(BOOL inhibit, int max, int resumeAt, NSString *why) {
     gLastCommand = CFAbsoluteTimeGetCurrent();
     XRHWriteState(max, resumeAt);
     XRHLog(@"%@ (%@) kr=0x%x", inhibit ? @"停充" : @"恢复充电", why, kr);
+    XRHEvent("daemon", @"%@（%@）kr=0x%x", inhibit ? @"停充" : @"恢复充电", why, kr);
 }
 
 #pragma mark - 偏好（读 mobile 用户的，插件和设置页写在那里）
@@ -697,6 +700,54 @@ static void XRHTick(NSString *reason) {
     (void)reason;
 }
 
+#pragma mark - 事件日志：开机时间、新的 panic
+
+// 这次开机的时间（Unix 时间）：和上一条「启动」比，变了就是整机重启过
+static double XRHBootTime(void) {
+    struct timeval tv = {0};
+    size_t len = sizeof(tv);
+    int mib[2] = {CTL_KERN, KERN_BOOTTIME};
+    return sysctl(mib, 2, &tv, &len, NULL, 0) == 0 ? tv.tv_sec + tv.tv_usec / 1e6 : 0;
+}
+
+// 看「分析数据」里有没有没记过的 panic-full-*.ips，有就把 panicString 第一行记进事件日志。
+// 记过的文件名存在 panics.plist；第一次运行会把手机上已有的都记一遍（正好能看到装 xrhea 前后的 panic）
+#define XRH_PANICS_SEEN_FILE @"/var/mobile/Library/Caches/com.xyrith.xrhea.panics.plist"
+static void XRHScanPanics(void) {
+    NSMutableSet<NSString *> *seen = [NSMutableSet setWithArray:[NSArray arrayWithContentsOfFile:XRH_PANICS_SEEN_FILE] ?: @[]];
+    NSUInteger before = seen.count;
+    NSFileManager *fm = [NSFileManager defaultManager];
+    for (NSString *dir in @[@"/private/var/mobile/Library/Logs/CrashReporter", @"/private/var/mobile/Library/Logs/CrashReporter/Retired"]) {
+        for (NSString *name in [fm contentsOfDirectoryAtPath:dir error:nil]) {
+            if (![name hasPrefix:@"panic-full"] || [seen containsObject:name]) continue;
+            // 同一份从 CrashReporter 挪进 Retired 后会多个 .000x 后缀：按「panic-full-日期时间」去重
+            NSString *stem = name.length >= 28 ? [name substringToIndex:28] : name;
+            BOOL dup = NO;
+            for (NSString *s in seen) if ([s hasPrefix:stem]) { dup = YES; break; }
+            [seen addObject:name];
+            if (dup) continue;
+            NSString *first = @"（读不出 panicString）";
+            NSData *d = [NSData dataWithContentsOfFile:[dir stringByAppendingPathComponent:name]];
+            const char *bytes = d.bytes;
+            const char *nl = d.length ? memchr(bytes, '\n', d.length) : NULL;
+            if (nl) {
+                NSData *body = [d subdataWithRange:NSMakeRange(nl - bytes + 1, d.length - (nl - bytes + 1))];
+                id json = [NSJSONSerialization JSONObjectWithData:body options:0 error:nil];
+                NSString *ps = [json isKindOfClass:[NSDictionary class]] ? json[@"panicString"] : nil;
+                if ([ps isKindOfClass:[NSString class]]) {
+                    first = [ps componentsSeparatedByString:@"\n"].firstObject;
+                    if (first.length > 240) first = [first substringToIndex:240];
+                }
+            }
+            XRHEvent("daemon", @"发现 panic %@：%@", name, first);
+        }
+    }
+    if (seen.count != before) {
+        [seen.allObjects writeToFile:XRH_PANICS_SEEN_FILE atomically:YES];
+        [fm setAttributes:@{NSFilePosixPermissions: @0644} ofItemAtPath:XRH_PANICS_SEEN_FILE error:nil];
+    }
+}
+
 #pragma mark - 入口
 
 int main(int argc, char *argv[]) {
@@ -719,6 +770,16 @@ int main(int argc, char *argv[]) {
         if (gLastFull <= 0) gLastFull = [NSDate date].timeIntervalSince1970;   // 第一次运行：当作刚充满
         gWasConnected = XRHBatteryNumber(@"ExternalConnected", 0) > 0;
         XRHLog(@"启动 pid=%d，之前停充=%d", getpid(), gInhibited);
+        {
+            double boot = XRHBootTime();
+            NSDateFormatter *f = [NSDateFormatter new];
+            f.dateFormat = @"yyyy-MM-dd HH:mm:ss";
+            XRHEvent("daemon", @"启动 pid=%d，开机于 %@，之前停充=%d，接着电源=%d", getpid(),
+                     boot > 0 ? [f stringFromDate:[NSDate dateWithTimeIntervalSince1970:boot]] : @"?", gInhibited, gWasConnected);
+            // 开机后 CrashReporter 可能还在写 panic 文件：启动时看一次，2 分钟后再看一次
+            XRHScanPanics();
+            dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 120 * NSEC_PER_SEC), dispatch_get_global_queue(QOS_CLASS_UTILITY, 0), ^{ XRHScanPanics(); });
+        }
         {   // 启动时先写一份状态（带上 lastFull），插件读得到
             CFPreferencesSynchronize(XRH_DOMAIN, CFSTR("mobile"), kCFPreferencesAnyHost);
             int max = XRHPrefInt(@"chargeLimitMax", 80, 50, 100);
@@ -731,6 +792,7 @@ int main(int argc, char *argv[]) {
         dispatch_source_set_event_handler(term, ^{
             if (gInhibited) XRHSetInhibit(NO, 0, 0, @"服务退出");
             XRHLog(@"退出");
+            XRHEvent("daemon", @"退出（SIGTERM）");
             exit(0);
         });
         dispatch_resume(term);

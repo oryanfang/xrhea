@@ -18,7 +18,7 @@
 			<key>label</key>
 			<string>版本</string>
 			<key>xrhValue</key>
-			<string>0.3.1</string>
+			<string>0.3.2</string>
 			<key>xrhVersion</key>
 			<true/>
 		</dict>
@@ -122,6 +122,24 @@
 			<string>PSButtonCell</string>
 			<key>label</key>
 			<string>复制问题信息</string>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSGroupCell</string>
+			<key>footerText</key>
+			<string>xrhea 免费使用。喜欢的话可以请作者喝杯咖啡。</string>
+			<key>xrhDonate</key>
+			<true/>
+		</dict>
+		<dict>
+			<key>action</key>
+			<string>xrhDonate</string>
+			<key>cell</key>
+			<string>PSButtonCell</string>
+			<key>label</key>
+			<string>捐赠</string>
+			<key>xrhDonate</key>
+			<true/>
 		</dict>
 		<dict>
 			<key>cell</key>

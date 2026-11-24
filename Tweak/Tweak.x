@@ -29,6 +29,8 @@ static void XRHPrefsChanged(CFNotificationCenterRef center, void *observer,
                     NSProcessInfo.processInfo.processName, getpid(), [NSDate date], prefs.enabled);
 
         // 保持高刷新率的开关传给 backboardd（总开关关着时传 0）
+        XRHEvent("sb", @"SpringBoard 载入 pid=%d，总开关=%d，低电量自动化：充电时=%d 锁屏时=%d，保持高刷新率=%d", getpid(), prefs.enabled,
+                 [prefs boolForKey:@"lpmCharging" fallback:NO], [prefs boolForKey:@"lpmLocked" fallback:NO], [prefs boolForKey:@"lpmKeepHighRefresh" fallback:NO]);
         XRHSyncHighRefresh();
         // 总开关关闭时不安装任何 hook（切换总开关需要注销生效）
         if (!prefs.enabled) return;

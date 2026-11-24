@@ -42,6 +42,8 @@
 	<string>iCloud Sync</string>
 	<key>iCloud 备份</key>
 	<string>iCloud Backup</string>
+	<key>xrhea 免费使用。喜欢的话可以请作者喝杯咖啡。</key>
+	<string>xrhea is free. If you like it, you can buy the author a coffee.</string>
 	<key>xrhea 的所有设置都会恢复默认。确定吗？</key>
 	<string>All xrhea settings will be restored to defaults. Continue?</string>
 	<key>• 拔掉充电线
@@ -272,6 +274,10 @@ Banner: a card slides down from the top; swipe up or tap to close.</string>
 	<string>Summary</string>
 	<key>慢充</key>
 	<string>Slow</string>
+	<key>截屏后打开微信 › 扫一扫 › 相册，选这张截图。</key>
+	<string>Take a screenshot, then in WeChat tap Scan › Album and choose it. WeChat accepts Visa and Mastercard.</string>
+	<key>打开微信</key>
+	<string>Open WeChat</string>
 	<key>打开相关页面</key>
 	<string>opens the related page</string>
 	<key>把 push.apple.com、17.0.0.0/8 设为直连</key>
@@ -286,6 +292,8 @@ Banner: a card slides down from the top; swipe up or tap to close.</string>
 	<string>on unplug</string>
 	<key>按现在的速度，约 %@ 用完。</key>
 	<string>At this rate, about %@ left.</string>
+	<key>捐赠</key>
+	<string>Donate</string>
 	<key>换个网络对比，或开飞行模式再关</key>
 	<string>Compare on another network, or toggle Airplane Mode</string>
 	<key>接触不良</key>

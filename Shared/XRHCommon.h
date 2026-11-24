@@ -5,6 +5,7 @@
 #import <objc/message.h>
 #import "XRHPrefs.h"
 #import "XRHDebug.h"
+#import "XRHEvents.h"
 #import "XRHKeys.h"
 #import "XRBattery.h"
 #import "XRBatteryEstimate.h"
