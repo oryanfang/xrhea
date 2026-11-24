@@ -209,10 +209,12 @@ PAGES["About"] = ("关于", [
     # 设置页语言（只影响设置页，XRHLocalize.h）：0 跟随系统 / 1 中文 / 2 English；改了马上重新加载，不用注销
     group(),
     choice("语言", "prefsLanguage", [0, 1, 2], ["跟随系统", "中文", "English"], 0, short=["跟随系统", "中文", "English"]),
-    group("软件源与反馈", "软件源地址：https://oryanfang.github.io/repo/\n「复制问题信息」会复制 xrhea 版本、iOS 版本、机型和改过的设置，可以贴进反馈里。"),
+    group("软件源与反馈", "软件源地址：https://oryanfang.github.io/repo/\n「复制问题信息」会复制 xrhea 版本、iOS 版本、机型和改过的设置，可以贴进反馈里。\n「重启记录」只有开机时间和系统崩溃原因，不含 App 和使用信息。"),
     button("软件源", "xrhOpenRepo"),
     button("反馈问题", "xrhOpenIssues"),
     button("复制问题信息", "xrhCopyInfo"),
+    # 重启记录：xrhead 写的 restarts.plist（开机时间 + panic 原因），弹窗显示、可复制
+    button("重启记录", "xrhRestarts"),
     # 捐赠：打开微信赞赏码页（XRHDonateController）；XRHRootListController.m 的 kXRHKofiURL 填了以后英文界面改成打开 Ko-fi
     dict(group(None, "xrhea 免费使用。喜欢的话可以请作者喝杯咖啡。"), xrhDonate=True),
     dict(button("捐赠", "xrhDonate"), xrhDonate=True),
@@ -229,8 +231,12 @@ EN = {
         "Only tested on iOS 17.3.1. Requires a roothide jailbreak; it won't work with TrollStore alone. Opening this page checks GitHub once for a new version.",
     "版本": "Version", "作者": "Author", "适用系统": "Supported iOS", "越狱环境": "Jailbreak",
     "软件源与反馈": "Source & Feedback",
-    "软件源地址：https://oryanfang.github.io/repo/\n「复制问题信息」会复制 xrhea 版本、iOS 版本、机型和改过的设置，可以贴进反馈里。":
-        "Source: https://oryanfang.github.io/repo/\n\"Copy Debug Info\" copies the xrhea and iOS versions, device model and changed settings for pasting into a report.",
+    "软件源地址：https://oryanfang.github.io/repo/\n「复制问题信息」会复制 xrhea 版本、iOS 版本、机型和改过的设置，可以贴进反馈里。\n「重启记录」只有开机时间和系统崩溃原因，不含 App 和使用信息。":
+        "Source: https://oryanfang.github.io/repo/\n\"Copy Debug Info\" copies the xrhea and iOS versions, device model and changed settings for pasting into a report.\n\"Restart History\" only has boot times and system crash reasons, no apps or usage.",
+    "重启记录": "Restart History", "开机": "Boots", "崩溃原因": "Crash reasons", "复制": "Copy",
+    "还没有记录。xrhea 会在每次开机后记下开机时间，以及系统崩溃日志里的原因。": "No records yet. xrhea notes the boot time after each start, and the reason from any system crash log.",
+    "没有崩溃日志": "No crash logs",
+    "AOP 协处理器固件崩溃：苹果系统的已知问题，与 xrhea 无关": "AOP coprocessor firmware crash: a known Apple system issue, not caused by xrhea",
     "软件源": "Source", "反馈问题": "Report an Issue", "复制问题信息": "Copy Debug Info",
     "把 xrhea 的所有设置恢复成默认值。完成后需要注销。": "Restores every xrhea setting to its default. Respring afterwards.",
     "重置所有设置": "Reset All Settings",
@@ -401,6 +407,7 @@ CODE_STRINGS = ["推送重连", "网络唤醒", "最近 24 小时", "最近 24 �
                 "%ld 分", "%ld 小时", "%ld 小时 %ld 分", "取消", "好",
 "%@ 开始充，%@ 前充满", "长条", "短条", "正在充电", "约40分钟", "预览", "截屏后打开微信 › 扫一扫 › 相册，选这张截图。", "打开微信", "需注销", "注销", "确定要注销（重启 SpringBoard）吗？", "取消", "有新版 %@", "在 Sileo 中添加", "复制地址",
                 "已复制", "好", "重置", "xrhea 的所有设置都会恢复默认。确定吗？", "已重置",
+                "重启记录", "开机", "崩溃原因", "复制", "没有崩溃日志", "AOP 协处理器固件崩溃：苹果系统的已知问题，与 xrhea 无关", "还没有记录。xrhea 会在每次开机后记下开机时间，以及系统崩溃日志里的原因。",
                 "有些设置要注销后才会完全恢复，现在注销吗？", "稍后", "重置所有设置", "软件源",
                 # XRHBatteryController.m
                 "电池信息", "最大容量（相对新电池）", "容量", "实际容量", "设计容量", "当前电量",

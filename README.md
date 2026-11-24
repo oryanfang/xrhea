@@ -58,9 +58,33 @@ Objective‑C / Logos, built with Theos, for **roothide** jailbreaks. Made for i
 - Each alert shows at most once every 30 minutes.
 
 **About page**
-- Language (System / 中文 / English), check GitHub for a new version, report an issue, copy debug info (versions, device model and changed settings), reset all settings.
+- Language (System / 中文 / English), check GitHub for a new version, report an issue, copy debug info (versions, device model and changed settings), restart history (boot times and system crash reasons, no apps or usage), donate, reset all settings.
 
 Settings live in Settings › xrhea.
+
+## Known issue: occasional restarts on iPhone 15 Pro
+
+iPhone 15 Pro / 15 Pro Max (A17 Pro) sometimes restart on their own with this crash reason:
+
+```
+AOP Unknown exception … low_latency(7) OUTBOX3 not ready
+```
+
+This is a firmware problem in Apple's AOP coprocessor (it runs the always-on sensor features such as Raise to Wake), **not something xrhea causes**:
+
+- 15 Pro users without a jailbreak or any tweaks have reported the same crash ([Apple Community](https://discussions.apple.com/thread/255519694), [MacRumors](https://forums.macrumors.com/threads/iphone-15-pro-random-restart-kernel-panic.2405141/)).
+- On the author's two phones (iOS 17.2.1 and 17.3.1) the crash happened at exactly the same address, and on one of them every active xrhea feature was off. Stress-testing the most suspicious path (switching Low Power Mode with 120 Hz kept) 208 times in a row did not reproduce it.
+- xrhea only talks to the battery fuel gauge (AppleSmartBattery). It never touches sensors, location, brightness or the display, so it can't reach the AOP.
+
+xrhea can't fix this firmware problem. For jailbroken phones the pain is having to re-jailbreak after the restart. What you can do:
+
+- Check the cause in Settings › xrhea › About › Restart History; this issue is labeled "AOP coprocessor firmware crash".
+- An occasional restart needs no action and does not harm the hardware.
+- If it happens often (several times a day), have the sensor hardware checked, such as the proximity sensor flex cable.
+- Updating iOS may bring fixed firmware, but you lose the jailbreak.
+- You can try turning off Raise to Wake, Always On Display and "Hey Siri" to give the AOP less work (unverified).
+
+If your crash reason is different, please [report it](https://github.com/oryanfang/xrhea/issues) with your Restart History.
 
 ## Privacy
 

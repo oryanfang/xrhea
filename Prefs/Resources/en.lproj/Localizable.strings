@@ -36,6 +36,8 @@
 	<string>%ld times</string>
 	<key>22 点后电量 &lt; 30%</key>
 	<string>&lt; 30% after 10 PM</string>
+	<key>AOP 协处理器固件崩溃：苹果系统的已知问题，与 xrhea 无关</key>
+	<string>AOP coprocessor firmware crash: a known Apple system issue, not caused by xrhea</string>
 	<key>Safari 网页视图</key>
 	<string>Safari View</string>
 	<key>iCloud 同步</key>
@@ -212,6 +214,8 @@ Banner: a card slides down from the top; swipe up or tap to close.</string>
 	<string>The model is the name the charger reports (Apple's internal naming).</string>
 	<key>处理方式</key>
 	<string>Action</string>
+	<key>复制</key>
+	<string>Copy</string>
 	<key>复制地址</key>
 	<string>Copy URL</string>
 	<key>复制问题信息</key>
@@ -240,6 +244,8 @@ Banner: a card slides down from the top; swipe up or tap to close.</string>
 	<string>Export Failed</string>
 	<key>小组件</key>
 	<string>Widgets</string>
+	<key>崩溃原因</key>
+	<string>Crash reasons</string>
 	<key>已充满</key>
 	<string>Fully Charged</string>
 	<key>已到上限</key>
@@ -260,6 +266,8 @@ Banner: a card slides down from the top; swipe up or tap to close.</string>
 	<string>Normally 5–10 per hour. Each reconnect wakes the phone and redoes the network handshake, which costs more on cellular.</string>
 	<key>开启</key>
 	<string>On</string>
+	<key>开机</key>
+	<string>Boots</string>
 	<key>异常</key>
 	<string>Issues</string>
 	<key>当前电量</key>
@@ -396,6 +404,8 @@ Banner: a card slides down from the top; swipe up or tap to close.</string>
 	<string>Weekly</string>
 	<key>每小时查看一次系统电池记录；连续 3 个锁屏小时超过设定占比时提醒，同一个 App 每天最多一次。推荐 30%。</key>
 	<string>Checks the system battery log every hour and alerts when one app exceeds the set share for 3 locked hours in a row; at most once a day per app. Recommended: 30%.</string>
+	<key>没有崩溃日志</key>
+	<string>No crash logs</string>
 	<key>注销</key>
 	<string>Respring</string>
 	<key>温度</key>
@@ -513,9 +523,11 @@ Banner: a card slides down from the top; swipe up or tap to close.</string>
 	<key>软件源与反馈</key>
 	<string>Source &amp; Feedback</string>
 	<key>软件源地址：https://oryanfang.github.io/repo/
-「复制问题信息」会复制 xrhea 版本、iOS 版本、机型和改过的设置，可以贴进反馈里。</key>
+「复制问题信息」会复制 xrhea 版本、iOS 版本、机型和改过的设置，可以贴进反馈里。
+「重启记录」只有开机时间和系统崩溃原因，不含 App 和使用信息。</key>
 	<string>Source: https://oryanfang.github.io/repo/
-"Copy Debug Info" copies the xrhea and iOS versions, device model and changed settings for pasting into a report.</string>
+"Copy Debug Info" copies the xrhea and iOS versions, device model and changed settings for pasting into a report.
+"Restart History" only has boot times and system crash reasons, no apps or usage.</string>
 	<key>边充边玩停充时</key>
 	<string>under load</string>
 	<key>边充边玩直充</key>
@@ -526,6 +538,8 @@ Banner: a card slides down from the top; swipe up or tap to close.</string>
 	<string>Hot</string>
 	<key>过热被限速</key>
 	<string>slowed by heat</string>
+	<key>还没有记录。xrhea 会在每次开机后记下开机时间，以及系统崩溃日志里的原因。</key>
+	<string>No records yet. xrhea notes the boot time after each start, and the reason from any system crash log.</string>
 	<key>这些数字怎么看</key>
 	<string>Understanding These Numbers</string>
 	<key>连续 3 小时超过每小时 15 次，偏多。</key>
@@ -536,6 +550,8 @@ Banner: a card slides down from the top; swipe up or tap to close.</string>
 	<string>Calls</string>
 	<key>速度为 80% 前每分钟充入的电量，点按可改名。</key>
 	<string>Speed is the charge added per minute below 80%. Tap to rename.</string>
+	<key>重启记录</key>
+	<string>Restart History</string>
 	<key>重置</key>
 	<string>Reset</string>
 	<key>重置所有设置</key>

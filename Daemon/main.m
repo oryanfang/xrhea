@@ -713,8 +713,37 @@ static double XRHBootTime(void) {
 // 看「分析数据」里有没有没记过的 panic-full-*.ips，有就把 panicString 第一行记进事件日志。
 // 记过的文件名存在 panics.plist；第一次运行会把手机上已有的都记一遍（正好能看到装 xrhea 前后的 panic）
 #define XRH_PANICS_SEEN_FILE @"/var/mobile/Library/Caches/com.xyrith.xrhea.panics.plist"
+
+// 重启记录（设置 › xrhea › 关于 › 重启记录 显示）：只有开机时间和 panic 原因，不含 App 信息，方便用户放心发给别人。
+// {boots: [Unix 时间…], panics: [{file, date, reason}…]}，各留最近 20 条（同 Shared/XRHKeys.h 的 XRH_RESTARTS_FILE）
+#define XRH_RESTARTS_FILE @"/var/mobile/Library/Caches/com.xyrith.xrhea.restarts.plist"
+static void XRHRestartsAdd(NSString *key, id item) {
+    NSMutableDictionary *d = [[NSDictionary dictionaryWithContentsOfFile:XRH_RESTARTS_FILE] mutableCopy] ?: [NSMutableDictionary dictionary];
+    NSMutableArray *list = [d[key] mutableCopy] ?: [NSMutableArray array];
+    if ([key isEqualToString:@"boots"]) {
+        // 服务重启（装包、注销）时开机时间不变：差不到 1 分钟就当同一次开机
+        if (fabs([list.lastObject doubleValue] - [item doubleValue]) < 60) return;
+    }
+    [list addObject:item];
+    if (list.count > 20) [list removeObjectsInRange:NSMakeRange(0, list.count - 20)];
+    d[key] = list;
+    [d writeToFile:XRH_RESTARTS_FILE atomically:YES];
+    [[NSFileManager defaultManager] setAttributes:@{NSFilePosixPermissions: @0644} ofItemAtPath:XRH_RESTARTS_FILE error:nil];
+}
+
+// panic-full-2026-11-20-175812… → 那一刻的 Unix 时间（本地时区），解析不了返回 0
+static double XRHPanicFileDate(NSString *name) {
+    if (name.length < 28) return 0;
+    NSDateFormatter *f = [NSDateFormatter new];
+    f.locale = [NSLocale localeWithLocaleIdentifier:@"en_US_POSIX"];
+    f.dateFormat = @"yyyy-MM-dd-HHmmss";
+    return [f dateFromString:[name substringWithRange:NSMakeRange(11, 17)]].timeIntervalSince1970;
+}
+
 static void XRHScanPanics(void) {
-    NSMutableSet<NSString *> *seen = [NSMutableSet setWithArray:[NSArray arrayWithContentsOfFile:XRH_PANICS_SEEN_FILE] ?: @[]];
+    // 0.3.3 之前装过 0.3.2 的：panics.plist 里记过了但重启记录里还没有，重启记录没有 panics 时从头再扫一遍
+    BOOL noRecords = [NSDictionary dictionaryWithContentsOfFile:XRH_RESTARTS_FILE][@"panics"] == nil;
+    NSMutableSet<NSString *> *seen = [NSMutableSet setWithArray:noRecords ? @[] : ([NSArray arrayWithContentsOfFile:XRH_PANICS_SEEN_FILE] ?: @[])];
     NSUInteger before = seen.count;
     NSFileManager *fm = [NSFileManager defaultManager];
     for (NSString *dir in @[@"/private/var/mobile/Library/Logs/CrashReporter", @"/private/var/mobile/Library/Logs/CrashReporter/Retired"]) {
@@ -740,6 +769,12 @@ static void XRHScanPanics(void) {
                 }
             }
             XRHEvent("daemon", @"发现 panic %@：%@", name, first);
+            // 记进重启记录：去掉开头的「panic(cpu 0 caller 0x…): 」，只留原因
+            NSString *reason = first;
+            NSRange r = [reason rangeOfString:@"): "];
+            if ([reason hasPrefix:@"panic("] && r.location != NSNotFound) reason = [reason substringFromIndex:NSMaxRange(r)];
+            reason = [reason stringByTrimmingCharactersInSet:[NSCharacterSet characterSetWithCharactersInString:@" -"]];
+            XRHRestartsAdd(@"panics", @{@"file": name, @"date": @(XRHPanicFileDate(name)), @"reason": reason});
         }
     }
     if (seen.count != before) {
@@ -777,6 +812,7 @@ int main(int argc, char *argv[]) {
             XRHEvent("daemon", @"启动 pid=%d，开机于 %@，之前停充=%d，接着电源=%d", getpid(),
                      boot > 0 ? [f stringFromDate:[NSDate dateWithTimeIntervalSince1970:boot]] : @"?", gInhibited, gWasConnected);
             // 开机后 CrashReporter 可能还在写 panic 文件：启动时看一次，2 分钟后再看一次
+            if (boot > 0) XRHRestartsAdd(@"boots", @(boot));
             XRHScanPanics();
             dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 120 * NSEC_PER_SEC), dispatch_get_global_queue(QOS_CLASS_UTILITY, 0), ^{ XRHScanPanics(); });
         }

@@ -32,6 +32,7 @@
 #define XRH_DRAIN_ASK          "com.xyrith.xrhea/drain-refresh"    // 设置页 → xrhead：重新算
 #define XRH_DRAIN_DONE         "com.xyrith.xrhea/drain-updated"    // xrhead → 设置页：算完了
 // 每周小结（xrhead 的 XRHWeekQuery 写）：{mode: week / preview, from, to, charges, standby, top: [名字…], pushBadDays}
+#define XRH_RESTARTS_FILE      @"/var/mobile/Library/Caches/com.xyrith.xrhea.restarts.plist"   // 重启记录：开机时间 + panic 原因（xrhead 写，关于页显示）
 #define XRH_WEEK_FILE          @"/var/mobile/Library/Caches/com.xyrith.xrhea.week.plist"
 #define kXRHChargerNames     @"chargerNames"       // 充电器改的名字（设置页「日志」写）：{充电头键: 名字}
 

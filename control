@@ -1,6 +1,6 @@
 Package: com.xyrith.xrhea
 Name: xrhea
-Version: 0.3.2
+Version: 0.3.3
 Architecture: iphoneos-arm64e
 Description: Battery and charging tweak for iOS 17: detailed battery info, a charge limit with scheduled full charge, a battery log (charging history, 24-hour level chart, per-app drain, push reconnects, Markdown export), heat protection and bypass charging, Low Power Mode automation with 120 Hz kept, and Dynamic Island alerts. Only tested on iOS 17.3.1; requires a roothide jailbreak.
 Maintainer: xyrith

@@ -58,9 +58,33 @@ Objective‑C / Logos，用 Theos 编译，适用 **roothide** 越狱。为 iOS 
 - 同一种提醒 30 分钟内只弹一次。
 
 **关于页**
-- 语言（跟随系统 / 中文 / English）、到 GitHub 检查新版本、反馈问题、复制问题信息（版本、机型和改过的设置）、重置所有设置。
+- 语言（跟随系统 / 中文 / English）、到 GitHub 检查新版本、反馈问题、复制问题信息（版本、机型和改过的设置）、重启记录（开机时间和系统崩溃原因，不含 App 和使用信息）、捐赠、重置所有设置。
 
 设置在「设置 › xrhea」。
+
+## 已知问题：iPhone 15 Pro 系列偶尔自动重启
+
+iPhone 15 Pro / 15 Pro Max（A17 Pro）偶尔会自己重启，崩溃原因是：
+
+```
+AOP Unknown exception … low_latency(7) OUTBOX3 not ready
+```
+
+这是苹果 AOP 协处理器（负责传感器、抬起唤醒等常开功能）固件里的问题，**不是 xrhea 引起的**：
+
+- 没越狱、没装任何插件的 15 Pro 用户也报告过同样的崩溃（[Apple 社区](https://discussions.apple.com/thread/255519694)、[MacRumors](https://forums.macrumors.com/threads/iphone-15-pro-random-restart-kernel-panic.2405141/)）。
+- 作者两台手机（iOS 17.2.1 和 17.3.1）的崩溃地址完全相同，其中一台当时 xrhea 的所有主动功能都是关的；把最可疑的路径（低电量模式切换 + 保持 120Hz）连续压测 208 次也没有复现。
+- xrhea 只读写电池电量计（AppleSmartBattery），不接触传感器、定位、亮度和显示，碰不到 AOP。
+
+xrhea 改不了这个固件问题。越狱用户的麻烦在于重启后要重新越狱。可以这样做：
+
+- 在「设置 › xrhea › 关于 › 重启记录」里确认原因；是这个问题时会标注「AOP 协处理器固件崩溃」。
+- 偶尔一次不用处理，对硬件没有伤害。
+- 频繁发生（一天好几次）时，检查距离感应器排线等传感器硬件。
+- 升级 iOS 可能会带来修复后的固件，但会失去越狱。
+- 可以试着关掉「抬起唤醒」、全天候显示和「嘿 Siri」，减少 AOP 的工作量（未经验证）。
+
+如果你遇到的崩溃原因不是这个，欢迎[反馈](https://github.com/oryanfang/xrhea/issues)，附上「重启记录」的内容。
 
 ## 隐私
 

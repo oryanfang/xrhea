@@ -1,5 +1,6 @@
 #import "XRHRootListController.h"
 #import "XRHLocalize.h"
+#import "XRHKeys.h"
 #import "XRHBatteryController.h"
 
 NSInteger gXRHPrefsLanguage = -1;
@@ -446,6 +447,44 @@ static BOOL XRHVersionNewer(NSString *a, NSString *b) {
 - (void)xrhOpenIssues {
     NSURL *url = [NSURL URLWithString:[NSString stringWithFormat:@"https://github.com/%@/issues/new", kXRHRepo]];
     [UIApplication.sharedApplication openURL:url options:@{} completionHandler:nil];
+}
+
+// 重启记录：xrhead 写的 restarts.plist，只有开机时间和 panic 原因（不含 App 和使用信息），弹窗给用户看过再决定复制
+- (void)xrhRestarts {
+    NSDictionary *d = [NSDictionary dictionaryWithContentsOfFile:XRH_RESTARTS_FILE];
+    NSArray *boots = d[@"boots"], *panics = d[@"panics"];
+    NSDateFormatter *f = [NSDateFormatter new];
+    f.locale = [NSLocale localeWithLocaleIdentifier:@"en_US_POSIX"];
+    f.dateFormat = @"yyyy-MM-dd HH:mm";
+    struct utsname u;
+    uname(&u);
+    NSMutableString *text = [NSMutableString string];
+    if (!boots.count && !panics.count) {
+        [text appendString:XRHL(@"还没有记录。xrhea 会在每次开机后记下开机时间，以及系统崩溃日志里的原因。")];
+    } else {
+        [text appendFormat:@"xrhea %@ · iOS %@ · %s\n", [[self xrh_versionSpecifier] propertyForKey:@"xrhValue"] ?: @"?",
+            UIDevice.currentDevice.systemVersion, u.machine];
+        [text appendFormat:@"\n%@\n", XRHL(@"开机")];
+        for (NSNumber *b in boots.reverseObjectEnumerator) [text appendFormat:@"%@\n", [f stringFromDate:[NSDate dateWithTimeIntervalSince1970:b.doubleValue]]];
+        [text appendFormat:@"\n%@\n", XRHL(@"崩溃原因")];
+        if (!panics.count) [text appendFormat:@"%@\n", XRHL(@"没有崩溃日志")];
+        for (NSDictionary *p in panics.reverseObjectEnumerator) {
+            double t = [p[@"date"] doubleValue];
+            NSString *reason = p[@"reason"] ?: @"?";
+            [text appendFormat:@"%@\n%@\n", t > 0 ? [f stringFromDate:[NSDate dateWithTimeIntervalSince1970:t]] : p[@"file"], reason];
+            // 已知问题：A17 Pro（iPhone 15 Pro 系列）的 AOP 协处理器固件崩溃，没越狱、没装插件的手机也有人遇到（见 README「已知问题」）
+            if ([reason containsString:@"AOP"]) [text appendFormat:@"→ %@\n", XRHL(@"AOP 协处理器固件崩溃：苹果系统的已知问题，与 xrhea 无关")];
+        }
+    }
+    NSString *shown = [text copy];
+    UIAlertController *alert = [UIAlertController alertControllerWithTitle:XRHL(@"重启记录") message:shown preferredStyle:UIAlertControllerStyleAlert];
+    if (boots.count || panics.count) {
+        [alert addAction:[UIAlertAction actionWithTitle:XRHL(@"复制") style:UIAlertActionStyleDefault handler:^(UIAlertAction *a) {
+            UIPasteboard.generalPasteboard.string = shown;
+        }]];
+    }
+    [alert addAction:[UIAlertAction actionWithTitle:XRHL(@"好") style:UIAlertActionStyleCancel handler:nil]];
+    [self presentViewController:alert animated:YES completion:nil];
 }
 
 // 复制问题信息：版本、系统、机型、偏好域里存着的设置（数组、字典只写数量）

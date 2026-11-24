@@ -18,7 +18,7 @@
 			<key>label</key>
 			<string>版本</string>
 			<key>xrhValue</key>
-			<string>0.3.2</string>
+			<string>0.3.3</string>
 			<key>xrhVersion</key>
 			<true/>
 		</dict>
@@ -95,7 +95,8 @@
 			<string>PSGroupCell</string>
 			<key>footerText</key>
 			<string>软件源地址：https://oryanfang.github.io/repo/
-「复制问题信息」会复制 xrhea 版本、iOS 版本、机型和改过的设置，可以贴进反馈里。</string>
+「复制问题信息」会复制 xrhea 版本、iOS 版本、机型和改过的设置，可以贴进反馈里。
+「重启记录」只有开机时间和系统崩溃原因，不含 App 和使用信息。</string>
 			<key>label</key>
 			<string>软件源与反馈</string>
 		</dict>
@@ -122,6 +123,14 @@
 			<string>PSButtonCell</string>
 			<key>label</key>
 			<string>复制问题信息</string>
+		</dict>
+		<dict>
+			<key>action</key>
+			<string>xrhRestarts</string>
+			<key>cell</key>
+			<string>PSButtonCell</string>
+			<key>label</key>
+			<string>重启记录</string>
 		</dict>
 		<dict>
 			<key>cell</key>
